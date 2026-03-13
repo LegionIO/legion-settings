@@ -1,9 +1,0 @@
-Legion::Settings(legion-settings)
-Copyright 2021 Optum
-
-Project Description:
-====================
-A gem written to handle LegionIO Settings in a consistent way across extensions
-
-Author(s):
-Esity

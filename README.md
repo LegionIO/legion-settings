@@ -1,36 +1,43 @@
-Legion::Settings
-=====
+# legion-settings
 
-Legion::Settings is a hash like class used to store LegionIO Settings. 
+Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
-Supported Ruby versions and implementations
-------------------------------------------------
-
-Legion::Json should work identically on:
-
-* JRuby 9.2+
-* Ruby 2.4+
-
-
-Installation and Usage
-------------------------
-
-You can verify your installation using this piece of code:
+## Installation
 
 ```bash
-gem install legion-json
+gem install legion-settings
 ```
+
+Or add to your Gemfile:
 
 ```ruby
-require 'legion-settings'
-Legion::Settings.load(config_dir: './') # will automatically load json files it has access to inside this dir
-
-Legion::Settings[:client][:hostname]
-Legion::Settings[:client][:new_attribute] = 'foobar'
-
+gem 'legion-settings'
 ```
 
-Authors
-----------
+## Usage
 
-* [Matthew Iverson](https://github.com/Esity) - current maintainer
+```ruby
+require 'legion/settings'
+
+Legion::Settings.load(config_dir: './')  # loads all .json files in the directory
+
+Legion::Settings[:client][:hostname]
+Legion::Settings[:transport][:connection][:host]
+```
+
+### Config Paths (checked in order)
+
+1. `/etc/legionio/`
+2. `~/legionio/`
+3. `./settings/`
+
+Each Legion module registers its own defaults via `merge_settings` during startup.
+
+## Requirements
+
+- Ruby >= 3.4
+- `legion-json`
+
+## License
+
+Apache-2.0

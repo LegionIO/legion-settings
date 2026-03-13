@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Settings
     module Validators
@@ -6,7 +8,7 @@ module Legion
           spawn = legion[:spawn]
           if is_a_hash?(spawn)
             if is_an_integer?(spawn[:limit])
-              (spawn[:limit]).positive? ||
+              spawn[:limit].positive? ||
                 invalid(legion, 'legion spawn limit must be greater than 0')
             else
               invalid(legion, 'legion spawn limit must be an integer')

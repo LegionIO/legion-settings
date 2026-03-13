@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'socket'
 require 'legion/settings/os'
 
@@ -20,37 +22,37 @@ module Legion
       def client_defaults
         {
           hostname: system_hostname,
-          address: system_address,
-          name: "#{::Socket.gethostname.tr('.', '_')}.#{::Process.pid}",
-          ready: false
+          address:  system_address,
+          name:     "#{::Socket.gethostname.tr('.', '_')}.#{::Process.pid}",
+          ready:    false
         }
       end
 
       def default_settings
         {
-          client: client_defaults,
-          cluster: { public_keys: {} },
-          crypt: {
-            cluster_secret: nil,
+          client:                     client_defaults,
+          cluster:                    { public_keys: {} },
+          crypt:                      {
+            cluster_secret:         nil,
             cluster_secret_timeout: 5,
-            vault: { connected: false }
+            vault:                  { connected: false }
           },
-          cache: { enabled: true, connected: false, driver: 'dalli' },
-          extensions: {},
-          reload: false,
-          reloading: false,
-          auto_install_missing_lex: true,
+          cache:                      { enabled: true, connected: false, driver: 'dalli' },
+          extensions:                 {},
+          reload:                     false,
+          reloading:                  false,
+          auto_install_missing_lex:   true,
           default_extension_settings: {
             logger: { level: 'info', trace: false, extended: false }
           },
-          logging: {
-            level: 'info',
-            location: 'stdout',
-            trace: true,
+          logging:                    {
+            level:             'info',
+            location:          'stdout',
+            trace:             true,
             backtrace_logging: true
           },
-          transport: { connected: false },
-          data: { connected: false }
+          transport:                  { connected: false },
+          data:                       { connected: false }
         }
       end
 
@@ -191,7 +193,7 @@ module Legion
       end
 
       def read_config_file(file)
-        contents = IO.read(file)
+        contents = File.read(file)
         if contents.respond_to?(:force_encoding)
           encoding = ::Encoding::ASCII_8BIT
           contents = contents.force_encoding(encoding)
@@ -216,7 +218,6 @@ module Legion
         merged
       end
 
-      # rubocop:disable Metrics/AbcSize
       def deep_diff(hash_one, hash_two)
         keys = hash_one.keys.concat(hash_two.keys).uniq
         keys.each_with_object({}) do |key, diff|
@@ -229,15 +230,12 @@ module Legion
                       end
         end
       end
-      # rubocop:enable Metrics/AbcSize
 
       def create_loaded_tempfile!
         dir = ENV['LEGION_LOADED_TEMPFILE_DIR'] || Dir.tmpdir
         file_name = "legion_#{legion_service_name}_loaded_files"
         path = File.join(dir, file_name)
-        File.open(path, 'w') do |file|
-          file.write(@loaded_files.join(':'))
-        end
+        File.write(path, @loaded_files.join(':'))
         path
       end
 

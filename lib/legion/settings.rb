@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'legion/json'
 require 'legion/settings/version'
 require 'legion/json/parse_error'
