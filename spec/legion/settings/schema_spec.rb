@@ -128,4 +128,44 @@ RSpec.describe Legion::Settings::Schema do
       expect(errors.length).to eq(2)
     end
   end
+
+  describe '#detect_unknown_keys' do
+    before do
+      schema.register(:transport, { connected: false })
+      schema.register(:cache, { enabled: true })
+    end
+
+    it 'returns no warnings for known keys' do
+      settings = { transport: { connected: true }, cache: { enabled: false } }
+      warnings = schema.detect_unknown_keys(settings)
+      expect(warnings).to be_empty
+    end
+
+    it 'warns about unknown top-level keys' do
+      settings = { transport: {}, cache: {}, trasport: {} }
+      warnings = schema.detect_unknown_keys(settings)
+      expect(warnings.length).to eq(1)
+      expect(warnings.first[:message]).to include('trasport')
+    end
+
+    it 'suggests corrections for typos within edit distance 2' do
+      settings = { transport: {}, cache: {}, tansport: {} }
+      warnings = schema.detect_unknown_keys(settings)
+      expect(warnings.first[:message]).to include('did you mean')
+    end
+
+    it 'skips keys listed in known_defaults' do
+      settings = { transport: {}, client: {}, extensions: {} }
+      warnings = schema.detect_unknown_keys(settings, known_defaults: %i[client extensions])
+      expect(warnings).to be_empty
+    end
+
+    it 'warns about unknown first-level keys within a module' do
+      schema.register(:cache, { driver: 'dalli', enabled: true })
+      settings = { cache: { driver: 'dalli', enbled: true } }
+      warnings = schema.detect_unknown_keys(settings)
+      expect(warnings.length).to eq(1)
+      expect(warnings.first[:path]).to eq('cache.enbled')
+    end
+  end
 end

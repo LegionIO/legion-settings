@@ -52,6 +52,23 @@ module Legion
       TYPE_NAMES = { string: 'String', integer: 'Integer', float: 'Float', boolean: 'Boolean',
                      array: 'Array', hash: 'Hash' }.freeze
 
+      def detect_unknown_keys(settings, known_defaults: [])
+        warnings = []
+        all_known = @registered + known_defaults
+
+        settings.each_key do |key|
+          next if all_known.include?(key)
+
+          suggestion = find_similar(key, all_known)
+          msg = "top-level key :#{key} is not registered by any module"
+          msg += " (did you mean :#{suggestion}?)" if suggestion
+          warnings << { module: :unknown_key, path: key.to_s, message: msg }
+        end
+
+        check_first_level_keys(settings, warnings)
+        warnings
+      end
+
       private
 
       def infer_types(defaults, target)
@@ -135,6 +152,50 @@ module Legion
         return if constraint[:enum].include?(value)
 
         errors << { module: mod_name, path: path, message: "expected one of #{constraint[:enum].inspect}, got #{value.inspect}" }
+      end
+
+      def check_first_level_keys(settings, warnings)
+        @schemas.each do |mod_name, mod_schema|
+          values = settings[mod_name]
+          next unless values.is_a?(Hash)
+
+          known_keys = mod_schema.keys
+          values.each_key do |key|
+            next if known_keys.include?(key)
+
+            suggestion = find_similar(key, known_keys)
+            msg = "unknown key :#{key}"
+            msg += " (did you mean :#{suggestion}?)" if suggestion
+            warnings << { module: mod_name, path: "#{mod_name}.#{key}", message: msg }
+          end
+        end
+      end
+
+      def find_similar(key, candidates)
+        key_str = key.to_s
+        candidates.map(&:to_s).select { |c| levenshtein(key_str, c) <= 2 }
+                              .min_by { |c| levenshtein(key_str, c) }
+                              &.to_sym
+      end
+
+      def levenshtein(str_a, str_b)
+        m = str_a.length
+        n = str_b.length
+        return m if n.zero?
+        return n if m.zero?
+
+        matrix = Array.new(m + 1) { |i| i }
+        (1..n).each do |j|
+          prev = matrix[0]
+          matrix[0] = j
+          (1..m).each do |i|
+            cost = str_a[i - 1] == str_b[j - 1] ? 0 : 1
+            temp = matrix[i]
+            matrix[i] = [matrix[i] + 1, matrix[i - 1] + 1, prev + cost].min
+            prev = temp
+          end
+        end
+        matrix[m]
       end
     end
   end
