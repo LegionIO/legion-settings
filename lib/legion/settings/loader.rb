@@ -199,11 +199,12 @@ module Legion
       end
 
       def read_config_file(file)
-        contents = File.read(file)
+        contents = File.read(file).dup
         if contents.respond_to?(:force_encoding)
           encoding = ::Encoding::ASCII_8BIT
           contents = contents.force_encoding(encoding)
-          contents.sub!("\xEF\xBB\xBF".force_encoding(encoding), '')
+          bom = (+"\xEF\xBB\xBF").force_encoding(encoding)
+          contents.sub!(bom, '')
         else
           contents.sub!(/^\357\273\277/, '')
         end
