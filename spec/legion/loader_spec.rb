@@ -243,14 +243,14 @@ RSpec.describe Legion::Settings::Loader do
     it 'creates a tempfile and sets environment variable' do
       loader.load_file(config_file)
       loader.set_env!
-      expect(ENV['LEGION_LOADED_TEMPFILE']).to match(/legion_.*_loaded_files/)
-      expect(File.exist?(ENV['LEGION_LOADED_TEMPFILE'])).to be true
+      expect(ENV.fetch('LEGION_LOADED_TEMPFILE', nil)).to match(/legion_.*_loaded_files/)
+      expect(File.exist?(ENV.fetch('LEGION_LOADED_TEMPFILE', nil))).to be true
     end
 
     it 'writes loaded file paths to the tempfile' do
       loader.load_file(config_file)
       loader.set_env!
-      contents = File.read(ENV['LEGION_LOADED_TEMPFILE'])
+      contents = File.read(ENV.fetch('LEGION_LOADED_TEMPFILE', nil))
       expect(contents).to include(config_file)
     end
   end
