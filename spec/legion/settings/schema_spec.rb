@@ -78,4 +78,54 @@ RSpec.describe Legion::Settings::Schema do
       expect(constraint[:enum]).to eq(%w[dalli redis])
     end
   end
+
+  describe '#validate_module' do
+    it 'returns no errors for valid settings' do
+      schema.register(:cache, { driver: 'dalli', enabled: true, port: 11_211 })
+      errors = schema.validate_module(:cache, { driver: 'redis', enabled: false, port: 11_211 })
+      expect(errors).to be_empty
+    end
+
+    it 'returns error for wrong type' do
+      schema.register(:transport, { connection: { host: '127.0.0.1' } })
+      errors = schema.validate_module(:transport, { connection: { host: 42 } })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:path]).to eq('connection.host')
+      expect(errors.first[:message]).to include('expected String')
+    end
+
+    it 'skips validation for :any type' do
+      schema.register(:crypt, { cluster_secret: nil })
+      errors = schema.validate_module(:crypt, { cluster_secret: 'some_secret' })
+      expect(errors).to be_empty
+    end
+
+    it 'validates enum constraints' do
+      schema.register(:cache, { driver: 'dalli' })
+      schema.define_override(:cache, { driver: { enum: %w[dalli redis] } })
+      errors = schema.validate_module(:cache, { driver: 'memcache' })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:message]).to include('one of')
+    end
+
+    it 'validates required constraint' do
+      schema.register(:crypt, { cluster_secret: nil })
+      schema.define_override(:crypt, { cluster_secret: { type: :string, required: true } })
+      errors = schema.validate_module(:crypt, { cluster_secret: nil })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:message]).to include('required')
+    end
+
+    it 'allows nil for non-required fields regardless of type' do
+      schema.register(:transport, { connection: { host: '127.0.0.1' } })
+      errors = schema.validate_module(:transport, { connection: { host: nil } })
+      expect(errors).to be_empty
+    end
+
+    it 'recurses into nested hashes' do
+      schema.register(:transport, { connection: { host: '127.0.0.1', port: 5672 } })
+      errors = schema.validate_module(:transport, { connection: { host: 42, port: 'bad' } })
+      expect(errors.length).to eq(2)
+    end
+  end
 end
