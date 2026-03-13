@@ -33,6 +33,16 @@ Legion::Settings[:transport][:connection][:host]
 
 Each Legion module registers its own defaults via `merge_settings` during startup.
 
+### Schema Validation
+
+Types are inferred automatically from default values. Optional constraints can be added:
+
+```ruby
+Legion::Settings.merge_settings('mymodule', { host: 'localhost', port: 8080 })
+Legion::Settings.define_schema('mymodule', { port: { required: true } })
+Legion::Settings.validate!  # raises ValidationError if any settings are invalid
+```
+
 ## Requirements
 
 - Ruby >= 3.4
