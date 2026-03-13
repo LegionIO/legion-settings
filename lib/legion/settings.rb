@@ -4,9 +4,13 @@ require 'legion/json'
 require 'legion/settings/version'
 require 'legion/json/parse_error'
 require 'legion/settings/loader'
+require 'legion/settings/schema'
+require 'legion/settings/validation_error'
 
 module Legion
   module Settings
+    CORE_MODULES = %i[transport cache crypt data logging client].freeze
+
     class << self
       attr_accessor :loader
 
@@ -44,6 +48,33 @@ module Legion
         thing = {}
         thing[key.to_sym] = hash
         @loader.load_module_settings(thing)
+        schema.register(key.to_sym, hash)
+        validate_module_on_merge(key.to_sym)
+      end
+
+      def define_schema(key, overrides)
+        schema.define_override(key.to_sym, overrides)
+      end
+
+      def add_cross_validation(&block)
+        cross_validations << block
+      end
+
+      def validate!
+        @loader = load if @loader.nil?
+        revalidate_all_modules
+        run_cross_validations
+        detect_unknown_keys
+        raise ValidationError, errors unless errors.empty?
+      end
+
+      def schema
+        @schema ||= Schema.new
+      end
+
+      def errors
+        @loader = load if @loader.nil?
+        @loader.errors
       end
 
       def logger
@@ -53,6 +84,49 @@ module Legion
                     require 'logger'
                     ::Logger.new($stdout)
                   end
+      end
+
+      private
+
+      def cross_validations
+        @cross_validations ||= []
+      end
+
+      def validate_module_on_merge(mod_name)
+        values = @loader[mod_name]
+        return unless values.is_a?(Hash)
+
+        module_errors = schema.validate_module(mod_name, values)
+        @loader.errors.concat(module_errors)
+      end
+
+      def revalidate_all_modules
+        schema.registered_modules.each do |mod_name|
+          values = @loader[mod_name]
+          next unless values.is_a?(Hash)
+
+          module_errors = schema.validate_module(mod_name, values)
+          @loader.errors.concat(module_errors)
+        end
+        @loader.errors.uniq!
+      end
+
+      def run_cross_validations
+        settings_hash = @loader.to_hash
+        cross_validations.each do |block|
+          block.call(settings_hash, @loader.errors)
+        end
+      end
+
+      def detect_unknown_keys
+        default_keys = @loader.default_settings.keys
+        registered = schema.registered_modules
+        known_defaults = default_keys - registered
+
+        warnings = schema.detect_unknown_keys(@loader.to_hash, known_defaults: known_defaults)
+        warnings.each do |w|
+          @loader.errors << w
+        end
       end
     end
   end

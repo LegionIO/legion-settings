@@ -68,6 +68,11 @@ module Legion
         to_hash[key]
       end
 
+      def []=(key, value)
+        @settings[key] = value
+        @indifferent_access = false
+      end
+
       def hexdigest
         if @hexdigest && @indifferent_access
           @hexdigest
@@ -149,8 +154,9 @@ module Legion
       end
 
       def validate
-        validator = Validator.new
-        @errors += validator.run(@settings, legion_service_name)
+        Legion::Settings.validate!
+      rescue Legion::Settings::ValidationError
+        # errors are already collected in @errors
       end
 
       private
