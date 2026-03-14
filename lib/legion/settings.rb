@@ -34,7 +34,6 @@ module Legion
         @loader = load if @loader.nil?
         @loader[key]
       rescue NoMethodError, TypeError
-        logger.fatal 'rescue inside [](key)'
         nil
       end
 
@@ -82,7 +81,11 @@ module Legion
                     ::Legion::Logging
                   else
                     require 'logger'
-                    ::Logger.new($stdout)
+                    l = ::Logger.new($stdout)
+                    l.formatter = proc do |severity, datetime, _progname, msg|
+                      "[#{datetime.strftime('%Y-%m-%d %H:%M:%S %z')}] #{severity} #{msg}\n"
+                    end
+                    l
                   end
       end
 

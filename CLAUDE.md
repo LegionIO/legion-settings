@@ -69,9 +69,12 @@ Legion::Settings (singleton module)
 | `lib/legion/settings/validation_error.rb` | Error collection and formatted reporting |
 | `lib/legion/settings/os.rb` | OS detection helpers |
 | `lib/legion/settings/version.rb` | VERSION constant |
-| `spec/legion/settings/schema_spec.rb` | Schema validation tests (23 specs) |
-| `spec/legion/settings/validation_error_spec.rb` | Error formatting tests (4 specs) |
-| `spec/legion/settings/integration_spec.rb` | End-to-end validation tests (8 specs) |
+| `spec/legion/settings_spec.rb` | Core settings module tests |
+| `spec/legion/settings_module_spec.rb` | Module-level accessor and merge tests |
+| `spec/legion/loader_spec.rb` | Loader: env/file/directory loading tests |
+| `spec/legion/settings/schema_spec.rb` | Schema validation tests |
+| `spec/legion/settings/validation_error_spec.rb` | Error formatting tests |
+| `spec/legion/settings/integration_spec.rb` | End-to-end validation tests |
 
 ## Role in LegionIO
 
