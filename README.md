@@ -41,6 +41,10 @@ Types are inferred automatically from default values. Optional constraints can b
 Legion::Settings.merge_settings('mymodule', { host: 'localhost', port: 8080 })
 Legion::Settings.define_schema('mymodule', { port: { required: true } })
 Legion::Settings.validate!  # raises ValidationError if any settings are invalid
+
+# In development, warn instead of raising:
+# Set LEGION_DEV=true or Legion::Settings.set_prop(:dev, true)
+# validate! will warn to $stderr (or Legion::Logging) instead of raising
 ```
 
 ## Requirements
