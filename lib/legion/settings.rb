@@ -59,12 +59,24 @@ module Legion
         cross_validations << block
       end
 
+      def dev_mode?
+        return true if ENV['LEGION_DEV'] == 'true'
+
+        Legion::Settings[:dev] ? true : false
+      rescue StandardError
+        false
+      end
+
       def validate!
         @loader = load if @loader.nil?
         revalidate_all_modules
         run_cross_validations
         detect_unknown_keys
-        raise ValidationError, errors unless errors.empty?
+        return if errors.empty?
+
+        raise ValidationError, errors unless dev_mode?
+
+        warn_validation_errors(errors)
       end
 
       def schema
@@ -93,6 +105,18 @@ module Legion
 
       def cross_validations
         @cross_validations ||= []
+      end
+
+      def warn_validation_errors(errs)
+        count = errs.length
+        label = count == 1 ? 'error' : 'errors'
+        message = "Legion::Settings dev mode: #{count} configuration #{label} detected (not raising):\n"
+        message += errs.map { |e| "  [#{e[:module]}] #{e[:path]}: #{e[:message]}" }.join("\n")
+        if ::Legion.const_defined?('Logging')
+          ::Legion::Logging.warn(message)
+        else
+          warn(message)
+        end
       end
 
       def validate_module_on_merge(mod_name)
