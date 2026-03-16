@@ -68,6 +68,7 @@ Legion::Settings (singleton module)
 | `lib/legion/settings/schema.rb` | Type inference, validation logic, unknown key detection (Levenshtein) |
 | `lib/legion/settings/validation_error.rb` | Error collection and formatted reporting |
 | `lib/legion/settings/os.rb` | OS detection helpers |
+| `lib/legion/settings/resolver.rb` | Secret resolution: `vault://` and `env://` URI references, fallback chains |
 | `lib/legion/settings/version.rb` | VERSION constant |
 | `spec/legion/settings_spec.rb` | Core settings module tests |
 | `spec/legion/settings_module_spec.rb` | Module-level accessor and merge tests |
@@ -76,6 +77,44 @@ Legion::Settings (singleton module)
 | `spec/legion/settings/validation_error_spec.rb` | Error formatting tests |
 | `spec/legion/settings/integration_spec.rb` | End-to-end validation tests |
 | `spec/legion/settings/role_defaults_spec.rb` | Role profile default settings tests |
+| `spec/legion/settings/resolver_spec.rb` | Secret resolver tests (env://, vault://, fallback chains) |
+
+## Secret Resolution
+
+Settings values can reference external secret sources using URI syntax. Resolved in-place via `Legion::Settings.resolve_secrets!` (called automatically after `Legion::Crypt.start` in the boot sequence).
+
+### URI Schemes
+
+| Scheme | Format | Resolution |
+|--------|--------|------------|
+| `vault://` | `vault://path/to/secret#key` | `Legion::Crypt.read(path)[key]` |
+| `env://` | `env://ENV_VAR_NAME` | `ENV['ENV_VAR_NAME']` |
+| *(plain string)* | `"guest"` | Returned as-is |
+
+### Fallback Chains
+
+Array values are tried in order — first non-nil wins:
+
+```json
+{
+  "transport": {
+    "connection": {
+      "password": ["vault://secret/data/rabbitmq#password", "env://RABBITMQ_PASSWORD", "guest"]
+    }
+  }
+}
+```
+
+### Logging Strategy
+
+- Vault not connected + vault refs exist: one summary warning with count
+- Individual vault path failures: debug level
+- Entire chain resolves to nil: one warning per key path
+- Success: info summary with resolved counts
+
+### Implementation
+
+`Legion::Settings::Resolver` module with `module_function`. Called via `Legion::Settings.resolve_secrets!` which delegates to `Resolver.resolve_secrets!(@loader.to_hash)`. Vault reads are cached by path within a single resolution pass.
 
 ## Role in LegionIO
 
