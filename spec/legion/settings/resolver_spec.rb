@@ -300,4 +300,98 @@ RSpec.describe Legion::Settings::Resolver do
       expect('http://example.com').not_to match(described_class::URI_PATTERN)
     end
   end
+
+  describe 'vault:// resolution' do
+    before do
+      stub_const('Legion::Crypt', Module.new)
+      allow(Legion::Crypt).to receive(:read).with('secret/data/transport').and_return({
+                                                                                        username: 'vault_user',
+                                                                                        password: 'vault_pass'
+                                                                                      })
+      allow(Legion::Crypt).to receive(:read).with('secret/data/missing').and_raise(StandardError, 'not found')
+    end
+
+    context 'when vault is connected' do
+      before do
+        allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: true } })
+      end
+
+      it 'resolves vault://path#key to the vault value' do
+        settings = { secret: 'vault://secret/data/transport#username' }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:secret]).to eq('vault_user')
+      end
+
+      it 'leaves the vault:// string in place when the key does not exist in the vault hash' do
+        settings = { secret: 'vault://secret/data/transport#nonexistent' }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:secret]).to eq('vault://secret/data/transport#nonexistent')
+      end
+
+      it 'does not raise when the vault path fails, and leaves the original string in place' do
+        settings = { secret: 'vault://secret/data/missing#key' }
+        expect { described_class.resolve_secrets!(settings) }.not_to raise_error
+        expect(settings[:secret]).to eq('vault://secret/data/missing#key')
+      end
+
+      it 'only calls Legion::Crypt.read once for two keys from the same path (caching)' do
+        settings = {
+          user: 'vault://secret/data/transport#username',
+          pass: 'vault://secret/data/transport#password'
+        }
+        described_class.resolve_secrets!(settings)
+        expect(Legion::Crypt).to have_received(:read).with('secret/data/transport').once
+        expect(settings[:user]).to eq('vault_user')
+        expect(settings[:pass]).to eq('vault_pass')
+      end
+    end
+
+    context 'when vault is not connected' do
+      before do
+        allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: false } })
+      end
+
+      it 'skips vault:// resolution and leaves string in place without calling Legion::Crypt.read' do
+        settings = { secret: 'vault://secret/data/transport#username' }
+        described_class.resolve_secrets!(settings)
+        expect(Legion::Crypt).not_to have_received(:read)
+        expect(settings[:secret]).to eq('vault://secret/data/transport#username')
+      end
+
+      it 'falls through to env fallback in a chain when vault is unavailable' do
+        ENV['LEGION_TEST_FALLBACK'] = 'env_fallback_value'
+        settings = { secret: ['vault://secret/data/transport#username', 'env://LEGION_TEST_FALLBACK', 'default'] }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:secret]).to eq('env_fallback_value')
+      ensure
+        ENV.delete('LEGION_TEST_FALLBACK')
+      end
+    end
+  end
+
+  describe 'mixed vault:// and env:// chain in resolve_secrets!' do
+    before do
+      stub_const('Legion::Crypt', Module.new)
+      allow(Legion::Crypt).to receive(:read).with('secret/data/rabbitmq').and_return({
+                                                                                       username: 'rabbit_vault',
+                                                                                       password: 'rabbit_secret'
+                                                                                     })
+      allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: true } })
+    end
+
+    it 'resolves vault first and skips env fallback when vault succeeds' do
+      ENV['RABBITMQ_USER'] = 'env_rabbit_user'
+      settings = {
+        transport: {
+          connection: {
+            user: ['vault://secret/data/rabbitmq#username', 'env://RABBITMQ_USER', 'guest']
+          }
+        }
+      }
+      described_class.resolve_secrets!(settings)
+      expect(settings[:transport][:connection][:user]).to eq('rabbit_vault')
+    ensure
+      ENV.delete('RABBITMQ_USER')
+    end
+  end
 end
