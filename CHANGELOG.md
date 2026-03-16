@@ -1,5 +1,13 @@
 # Legion::Settings Changelog
 
+## [1.3.0] - 2026-03-16
+
+### Added
+- Universal secret resolver: `vault://` and `env://` URI references in any settings value
+- Fallback chain support via arrays (first non-nil wins)
+- `Legion::Settings.resolve_secrets!` method for explicit resolution phase
+- Vault read caching within a single resolution pass
+
 ## [1.2.2] - 2026-03-16
 
 ### Added
