@@ -52,7 +52,8 @@ module Legion
             backtrace_logging: true
           },
           transport:                  { connected: false },
-          data:                       { connected: false }
+          data:                       { connected: false },
+          role:                       { profile: nil, extensions: [] }
         }
       end
 
