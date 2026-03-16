@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.2.2] - 2026-03-16
+
+### Added
+- `role` key in default settings with `profile` and `extensions` fields for extension profile filtering
+
 ## v1.2.1
 
 ### Added
