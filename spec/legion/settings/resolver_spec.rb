@@ -394,6 +394,133 @@ RSpec.describe Legion::Settings::Resolver do
       ENV.delete('RABBITMQ_USER')
     end
   end
+
+  describe 'LEASE_PATTERN' do
+    it 'matches lease://name#key' do
+      m = 'lease://rabbitmq#username'.match(described_class::LEASE_PATTERN)
+      expect(m).not_to be_nil
+      expect(m[1]).to eq('rabbitmq')
+      expect(m[2]).to eq('username')
+    end
+
+    it 'matches lease names with hyphens' do
+      m = 'lease://rabbitmq-primary#password'.match(described_class::LEASE_PATTERN)
+      expect(m).not_to be_nil
+      expect(m[1]).to eq('rabbitmq-primary')
+    end
+
+    it 'does not match lease:// without # separator' do
+      expect('lease://rabbitmq'.match(described_class::LEASE_PATTERN)).to be_nil
+    end
+
+    it 'does not match vault:// URIs' do
+      expect('vault://secret/app#key'.match(described_class::LEASE_PATTERN)).to be_nil
+    end
+
+    it 'does not match env:// URIs' do
+      expect('env://MY_VAR'.match(described_class::LEASE_PATTERN)).to be_nil
+    end
+  end
+
+  describe 'URI_PATTERN with lease://' do
+    it 'matches lease:// URIs' do
+      expect('lease://rabbitmq#username').to match(described_class::URI_PATTERN)
+    end
+  end
+
+  describe 'lease:// resolution' do
+    let(:lease_manager) { double('LeaseManager', fetch: nil, register_ref: nil) }
+
+    before do
+      stub_const('Legion::Crypt::LeaseManager', Class.new)
+      allow(Legion::Crypt::LeaseManager).to receive(:instance).and_return(lease_manager)
+    end
+
+    context 'when LeaseManager is available' do
+      before do
+        allow(lease_manager).to receive(:fetch).with('rabbitmq', 'username').and_return('lease_user')
+        allow(lease_manager).to receive(:fetch).with('rabbitmq', 'password').and_return('lease_pass')
+      end
+
+      it 'resolves lease://name#key to the LeaseManager value' do
+        settings = { user: 'lease://rabbitmq#username' }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:user]).to eq('lease_user')
+      end
+
+      it 'resolves multiple keys from the same lease' do
+        settings = {
+          transport: {
+            connection: {
+              username: 'lease://rabbitmq#username',
+              password: 'lease://rabbitmq#password'
+            }
+          }
+        }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:transport][:connection][:username]).to eq('lease_user')
+        expect(settings[:transport][:connection][:password]).to eq('lease_pass')
+      end
+
+      it 'registers references with LeaseManager for push-back' do
+        settings = { user: 'lease://rabbitmq#username' }
+        described_class.resolve_secrets!(settings)
+        expect(lease_manager).to have_received(:register_ref).with('rabbitmq', 'username', kind_of(Array))
+      end
+
+      it 'works in fallback chains' do
+        allow(lease_manager).to receive(:fetch).with('primary', 'password').and_return(nil)
+        allow(lease_manager).to receive(:fetch).with('fallback', 'password').and_return('fallback_pass')
+        settings = { pass: ['lease://primary#password', 'lease://fallback#password', 'default'] }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:pass]).to eq('fallback_pass')
+      end
+
+      it 'mixes with env:// in chains' do
+        ENV['LEASE_TEST_MIX'] = 'from_env'
+        allow(lease_manager).to receive(:fetch).with('rabbitmq', 'password').and_return(nil)
+        settings = { pass: ['lease://rabbitmq#password', 'env://LEASE_TEST_MIX', 'guest'] }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:pass]).to eq('from_env')
+      ensure
+        ENV.delete('LEASE_TEST_MIX')
+      end
+    end
+
+    context 'when LeaseManager is not available' do
+      before do
+        hide_const('Legion::Crypt::LeaseManager')
+      end
+
+      it 'leaves lease:// strings unresolved' do
+        settings = { user: 'lease://rabbitmq#username' }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:user]).to eq('lease://rabbitmq#username')
+      end
+    end
+  end
+
+  describe '.count_lease_refs' do
+    it 'returns 0 when no lease:// references exist' do
+      settings = { host: 'localhost', key: 'env://MY_VAR' }
+      expect(described_class.count_lease_refs(settings)).to eq(0)
+    end
+
+    it 'counts lease:// references in string values' do
+      settings = { user: 'lease://rabbitmq#username', pass: 'lease://rabbitmq#password' }
+      expect(described_class.count_lease_refs(settings)).to eq(2)
+    end
+
+    it 'counts lease:// references inside arrays' do
+      settings = { chain: ['lease://rabbitmq#password', 'env://FALLBACK', 'literal'] }
+      expect(described_class.count_lease_refs(settings)).to eq(1)
+    end
+
+    it 'counts recursively in nested hashes' do
+      settings = { db: { pass: 'lease://postgres#password', host: 'localhost' } }
+      expect(described_class.count_lease_refs(settings)).to eq(1)
+    end
+  end
 end
 
 RSpec.describe 'Legion::Settings.resolve_secrets!' do

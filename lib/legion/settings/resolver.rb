@@ -3,9 +3,10 @@
 module Legion
   module Settings
     module Resolver
-      VAULT_PATTERN = %r{\Avault://(.+?)#(.+)\z}
-      ENV_PATTERN   = %r{\Aenv://(.+)\z}
-      URI_PATTERN   = %r{\A(?:vault|env)://}
+      VAULT_PATTERN  = %r{\Avault://(.+?)#(.+)\z}
+      ENV_PATTERN    = %r{\Aenv://(.+)\z}
+      LEASE_PATTERN  = %r{\Alease://(.+?)#(.+)\z}
+      URI_PATTERN    = %r{\A(?:vault|env|lease)://}
 
       module_function
 
@@ -17,6 +18,9 @@ module Legion
 
         vault_count = count_vault_refs(settings_hash)
         log_warn("Vault not connected — #{vault_count} vault:// reference(s) will not be resolved") if vault_count.positive? && !@vault_available
+
+        lease_count = count_lease_refs(settings_hash)
+        log_warn("LeaseManager not available — #{lease_count} lease:// reference(s) will not be resolved") if lease_count.positive? && !lease_manager_available?
 
         resolved = 0
         unresolved = 0
@@ -51,6 +55,8 @@ module Legion
       def resolve_single(str)
         if (m = str.match(VAULT_PATTERN))
           resolve_vault(m[1], m[2])
+        elsif (m = str.match(LEASE_PATTERN))
+          resolve_lease(m[1], m[2])
         elsif (m = str.match(ENV_PATTERN))
           ENV.fetch(m[1], nil)
         else
@@ -112,6 +118,7 @@ module Legion
               block&.call(:unresolved)
             else
               hash[key] = resolved
+              register_lease_ref(value, current_path) if value.match?(LEASE_PATTERN)
               block&.call(:resolved)
             end
           when Array
@@ -123,6 +130,7 @@ module Legion
               block&.call(:unresolved)
             else
               hash[key] = resolved
+              register_lease_refs_from_chain(value, current_path)
               block&.call(:resolved)
             end
           end
@@ -145,8 +153,58 @@ module Legion
         data[key.to_sym] || data[key.to_s]
       end
 
+      def resolve_lease(name, key)
+        return nil unless lease_manager_available?
+
+        Legion::Crypt::LeaseManager.instance.fetch(name, key)
+      rescue StandardError => e
+        log_debug("Settings resolver: lease fetch failed for #{name}##{key}: #{e.message}")
+        nil
+      end
+
+      def lease_manager_available?
+        defined?(Legion::Crypt::LeaseManager)
+      rescue StandardError
+        false
+      end
+
       def resolvable_chain?(arr)
         arr.any? { |v| v.is_a?(String) && v.match?(URI_PATTERN) }
+      end
+
+      def register_lease_ref(value, path_string)
+        return unless lease_manager_available?
+
+        m = value.match(LEASE_PATTERN)
+        return unless m
+
+        path_parts = path_string.split('.').map(&:to_sym)
+        Legion::Crypt::LeaseManager.instance.register_ref(m[1], m[2], path_parts)
+      rescue StandardError
+        nil
+      end
+
+      def register_lease_refs_from_chain(arr, path_string)
+        return unless lease_manager_available?
+
+        arr.each do |entry|
+          next unless entry.is_a?(String)
+
+          register_lease_ref(entry, path_string) if entry.match?(LEASE_PATTERN)
+        end
+      end
+
+      def count_lease_refs(hash)
+        return 0 unless hash.is_a?(Hash)
+
+        hash.sum do |_key, value|
+          case value
+          when String then value.match?(LEASE_PATTERN) ? 1 : 0
+          when Array  then value.count { |v| v.is_a?(String) && v.match?(LEASE_PATTERN) }
+          when Hash   then count_lease_refs(value)
+          else 0
+          end
+        end
       end
 
       def log_info(message)
