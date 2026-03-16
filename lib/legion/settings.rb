@@ -79,6 +79,12 @@ module Legion
         warn_validation_errors(errors)
       end
 
+      def resolve_secrets!
+        @loader = load if @loader.nil?
+        require 'legion/settings/resolver'
+        Resolver.resolve_secrets!(@loader.to_hash)
+      end
+
       def schema
         @schema ||= Schema.new
       end

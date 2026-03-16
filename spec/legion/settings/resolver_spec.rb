@@ -395,3 +395,12 @@ RSpec.describe Legion::Settings::Resolver do
     end
   end
 end
+
+RSpec.describe 'Legion::Settings.resolve_secrets!' do
+  it 'delegates to Resolver.resolve_secrets!' do
+    allow(Legion::Settings::Resolver).to receive(:resolve_secrets!)
+    Legion::Settings.load
+    Legion::Settings.resolve_secrets!
+    expect(Legion::Settings::Resolver).to have_received(:resolve_secrets!).with(kind_of(Hash))
+  end
+end
