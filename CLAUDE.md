@@ -75,6 +75,7 @@ Legion::Settings (singleton module)
 | `spec/legion/settings/schema_spec.rb` | Schema validation tests |
 | `spec/legion/settings/validation_error_spec.rb` | Error formatting tests |
 | `spec/legion/settings/integration_spec.rb` | End-to-end validation tests |
+| `spec/legion/settings/role_defaults_spec.rb` | Role profile default settings tests |
 
 ## Role in LegionIO
 
@@ -86,6 +87,7 @@ Legion::Settings[:cache]      # legion-cache config
 Legion::Settings[:crypt]      # legion-crypt config
 Legion::Settings[:data]       # legion-data config
 Legion::Settings[:client]     # Node identity (name, hostname, ready state)
+Legion::Settings[:role]       # Extension profile filtering (profile, extensions)
 ```
 
 ### Validation Usage
