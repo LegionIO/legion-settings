@@ -36,12 +36,13 @@ Each Legion module registers its own defaults via `merge_settings` during startu
 
 ### Secret Resolution
 
-Settings values can reference external secret sources using URI syntax. Two schemes are supported:
+Settings values can reference external secret sources using URI syntax. Three schemes are supported:
 
 | Scheme | Format | Resolution |
 |--------|--------|------------|
-| `vault://` | `vault://path/to/secret#key` | Reads from HashiCorp Vault via `Legion::Crypt` |
+| `vault://` | `vault://path/to/secret#key` | Reads static KV secrets from HashiCorp Vault via `Legion::Crypt` |
 | `env://` | `env://ENV_VAR_NAME` | Reads from environment variable |
+| `lease://` | `lease://name#key` | Reads from dynamic Vault leases via `Legion::Crypt::LeaseManager` |
 
 Array values act as fallback chains — the first non-nil result wins:
 
@@ -59,7 +60,7 @@ Call `Legion::Settings.resolve_secrets!` to resolve all URIs in-place. In the Le
 
 ```ruby
 Legion::Settings.resolve_secrets!
-# All vault:// and env:// references are now replaced with their resolved values
+# All vault://, env://, and lease:// references are now replaced with their resolved values
 ```
 
 ### Schema Validation
