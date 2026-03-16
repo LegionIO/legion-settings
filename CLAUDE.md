@@ -77,7 +77,7 @@ Legion::Settings (singleton module)
 | `spec/legion/settings/validation_error_spec.rb` | Error formatting tests |
 | `spec/legion/settings/integration_spec.rb` | End-to-end validation tests |
 | `spec/legion/settings/role_defaults_spec.rb` | Role profile default settings tests |
-| `spec/legion/settings/resolver_spec.rb` | Secret resolver tests (env://, vault://, fallback chains) |
+| `spec/legion/settings/resolver_spec.rb` | Secret resolver tests (env://, vault://, lease://, fallback chains) |
 
 ## Secret Resolution
 
@@ -87,8 +87,9 @@ Settings values can reference external secret sources using URI syntax. Resolved
 
 | Scheme | Format | Resolution |
 |--------|--------|------------|
-| `vault://` | `vault://path/to/secret#key` | `Legion::Crypt.read(path)[key]` |
+| `vault://` | `vault://path/to/secret#key` | `Legion::Crypt.read(path)[key]` (static KV secrets) |
 | `env://` | `env://ENV_VAR_NAME` | `ENV['ENV_VAR_NAME']` |
+| `lease://` | `lease://name#key` | `Legion::Crypt::LeaseManager.instance.fetch(name, key)` (dynamic Vault leases) |
 | *(plain string)* | `"guest"` | Returned as-is |
 
 ### Fallback Chains

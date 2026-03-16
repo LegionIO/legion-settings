@@ -1,5 +1,12 @@
 # Legion::Settings Changelog
 
+## [1.3.1] - 2026-03-16
+
+### Added
+- `lease://name#key` URI scheme in secret resolver for dynamic Vault leases
+- Delegates to `Legion::Crypt::LeaseManager` for lease data lookup
+- Registers reverse references for push-back on credential rotation
+
 ## [1.3.0] - 2026-03-16
 
 ### Added
