@@ -28,10 +28,39 @@ Legion::Settings[:transport][:connection][:host]
 ### Config Paths (checked in order)
 
 1. `/etc/legionio/`
-2. `~/legionio/`
-3. `./settings/`
+2. `~/.legionio/settings/`
+3. `~/legionio/`
+4. `./settings/`
 
 Each Legion module registers its own defaults via `merge_settings` during startup.
+
+### Secret Resolution
+
+Settings values can reference external secret sources using URI syntax. Two schemes are supported:
+
+| Scheme | Format | Resolution |
+|--------|--------|------------|
+| `vault://` | `vault://path/to/secret#key` | Reads from HashiCorp Vault via `Legion::Crypt` |
+| `env://` | `env://ENV_VAR_NAME` | Reads from environment variable |
+
+Array values act as fallback chains — the first non-nil result wins:
+
+```json
+{
+  "transport": {
+    "connection": {
+      "password": ["vault://secret/data/rabbitmq#password", "env://RABBITMQ_PASSWORD", "guest"]
+    }
+  }
+}
+```
+
+Call `Legion::Settings.resolve_secrets!` to resolve all URIs in-place. In the LegionIO boot sequence this is called automatically after `Legion::Crypt.start`. The `env://` scheme works even when Vault is not connected.
+
+```ruby
+Legion::Settings.resolve_secrets!
+# All vault:// and env:// references are now replaced with their resolved values
+```
 
 ### Schema Validation
 
