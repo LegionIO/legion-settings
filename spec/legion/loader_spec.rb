@@ -59,8 +59,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:cache][:driver]).to eq('dalli')
     end
 
-    it 'has empty extensions' do
-      expect(defaults[:extensions]).to eq({})
+    it 'has extensions hash' do
+      expect(defaults[:extensions]).to be_a(Hash)
     end
 
     it 'has logging settings' do
@@ -252,6 +252,34 @@ RSpec.describe Legion::Settings::Loader do
       loader.set_env!
       contents = File.read(ENV.fetch('LEGION_LOADED_TEMPFILE', nil))
       expect(contents).to include(config_file)
+    end
+  end
+
+  describe '#default_settings extension categories' do
+    subject(:defaults) { loader.default_settings }
+
+    it 'includes extension category lists' do
+      expect(defaults[:extensions][:core]).to be_an(Array)
+      expect(defaults[:extensions][:ai]).to be_an(Array)
+      expect(defaults[:extensions][:gaia]).to be_an(Array)
+      expect(defaults[:extensions][:core]).to include('lex-node', 'lex-tasker')
+      expect(defaults[:extensions][:ai]).to include('lex-claude', 'lex-openai', 'lex-gemini')
+      expect(defaults[:extensions][:gaia]).to include('lex-tick', 'lex-apollo')
+    end
+
+    it 'includes category registry' do
+      cats = defaults[:extensions][:categories]
+      expect(cats[:core]).to eq({ type: :list, tier: 1 })
+      expect(cats[:ai]).to eq({ type: :list, tier: 2 })
+      expect(cats[:gaia]).to eq({ type: :list, tier: 3 })
+      expect(cats[:agentic]).to eq({ type: :prefix, tier: 4 })
+    end
+
+    it 'includes governance defaults' do
+      expect(defaults[:extensions][:blocked]).to eq([])
+      expect(defaults[:extensions][:agentic]).to eq({ allowed: nil, blocked: [] })
+      expect(defaults[:extensions][:reserved_prefixes]).to include('agentic', 'core', 'ai', 'gaia')
+      expect(defaults[:extensions][:reserved_words]).to include('transport', 'cache', 'data')
     end
   end
 
