@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.2] - 2026-03-17
+
+### Added
+- `dig(*keys)` method on `Legion::Settings` and `Legion::Settings::Loader` for nested key access
+
 ## [1.3.1] - 2026-03-16
 
 ### Added

@@ -37,6 +37,13 @@ module Legion
         nil
       end
 
+      def dig(*keys)
+        @loader = load if @loader.nil?
+        @loader.dig(*keys)
+      rescue NoMethodError, TypeError
+        nil
+      end
+
       def set_prop(key, value)
         @loader = load if @loader.nil?
         @loader[key] = value

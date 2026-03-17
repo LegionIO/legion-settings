@@ -69,6 +69,10 @@ module Legion
         to_hash[key]
       end
 
+      def dig(*keys)
+        to_hash.dig(*keys)
+      end
+
       def []=(key, value)
         @settings[key] = value
         @indifferent_access = false
