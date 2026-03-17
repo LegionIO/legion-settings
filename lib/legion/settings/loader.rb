@@ -138,8 +138,8 @@ module Legion
             # @indifferent_access = false
             @loaded_files << file
           rescue Legion::JSON::ParseError => e
-            Legion::Logging.error('config file must be valid json')
-            Legion::Logging.debug("file:#{file}, error: #{e}")
+            Legion::Logging.error("config file must be valid json: #{file}")
+            Legion::Logging.error("  parse error: #{e.message}")
           end
         else
           Legion::Logging.warn("Config file does not exist or is not readable file:#{file}")
