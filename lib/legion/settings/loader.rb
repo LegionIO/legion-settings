@@ -38,7 +38,25 @@ module Legion
             vault:                  { connected: false }
           },
           cache:                      { enabled: true, connected: false, driver: 'dalli' },
-          extensions:                 {},
+          extensions:                 {
+            core:              %w[
+              lex-node lex-tasker lex-scheduler lex-health lex-ping
+              lex-telemetry lex-metering lex-log lex-audit
+              lex-conditioner lex-transformer lex-exec lex-lex lex-codegen
+            ],
+            ai:                %w[lex-claude lex-openai lex-gemini],
+            gaia:              %w[lex-tick lex-mesh lex-apollo lex-cortex],
+            categories:        {
+              core:    { type: :list, tier: 1 },
+              ai:      { type: :list, tier: 2 },
+              gaia:    { type: :list, tier: 3 },
+              agentic: { type: :prefix, tier: 4 }
+            },
+            blocked:           [],
+            reserved_prefixes: %w[core ai agentic gaia],
+            reserved_words:    %w[transport cache crypt data settings json logging llm rbac legion],
+            agentic:           { allowed: nil, blocked: [] }
+          },
           reload:                     false,
           reloading:                  false,
           auto_install_missing_lex:   true,
