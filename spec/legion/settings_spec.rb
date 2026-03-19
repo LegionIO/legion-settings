@@ -74,3 +74,17 @@ RSpec.describe 'Legion::Settings' do
     expect { Legion::Settings[:transport][:foo][:test] }.to raise_error NoMethodError
   end
 end
+
+RSpec.describe 'DNS bootstrap integration' do
+  before do
+    Legion::Settings.instance_variable_set(:@loader, nil)
+  end
+
+  it 'calls load_dns_bootstrap during load' do
+    loader = Legion::Settings.load
+    # Verify dns settings exist after load (dns_defaults populated in Loader#default_settings)
+    expect(loader[:dns]).to be_a(Hash)
+    expect(loader[:dns]).to have_key(:default_domain)
+    expect(loader[:dns]).to have_key(:bootstrap)
+  end
+end

@@ -17,6 +17,7 @@ module Legion
       def load(options = {})
         @loader = Legion::Settings::Loader.new
         @loader.load_env
+        @loader.load_dns_bootstrap
         @loader.load_file(options[:config_file]) if options[:config_file]
         @loader.load_directory(options[:config_dir]) if options[:config_dir]
         options[:config_dirs]&.each do |directory|
