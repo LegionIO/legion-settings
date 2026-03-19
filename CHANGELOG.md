@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.3] - 2026-03-17
+
+### Fixed
+- Config JSON parse error now includes the filename at ERROR level instead of burying it in DEBUG
+
 ## [1.3.2] - 2026-03-17
 
 ### Added

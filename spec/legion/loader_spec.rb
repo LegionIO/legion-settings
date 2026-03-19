@@ -123,6 +123,13 @@ RSpec.describe Legion::Settings::Loader do
       expect(loader.loaded_files).not_to include(invalid_file)
     end
 
+    it 'logs the filename when JSON is invalid' do
+      invalid_file = File.join(assets_dir, 'invalid.json')
+      expect(Legion::Logging).to receive(:error).with(a_string_including(invalid_file))
+      expect(Legion::Logging).to receive(:error).with(a_string_matching(/parse error/))
+      loader.load_file(invalid_file)
+    end
+
     it 'handles a nonexistent file gracefully' do
       expect { loader.load_file('/tmp/nonexistent_legion_test_file.json') }.not_to raise_error
       expect(loader.loaded_files).to be_empty
