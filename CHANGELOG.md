@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.4] - 2026-03-18
+
+### Fixed
+- Added `logger` gem to test dependencies for Ruby 4.0 compatibility
+
 ## [1.3.3] - 2026-03-17
 
 ### Fixed
