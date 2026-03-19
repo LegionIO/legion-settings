@@ -8,6 +8,7 @@
 Hash-like configuration store for the LegionIO framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems. Includes schema-based validation with type inference, enum constraints, and cross-module checks.
 
 **GitHub**: https://github.com/LegionIO/legion-settings
+**Version**: 1.3.4
 **License**: Apache-2.0
 
 ## Architecture

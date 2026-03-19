@@ -2,6 +2,8 @@
 
 Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
+**Version**: 1.3.4
+
 ## Installation
 
 ```bash
