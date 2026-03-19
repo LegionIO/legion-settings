@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'tmpdir'
 require 'legion/logging'
 require 'legion/settings/loader'
+require 'legion/settings/dns_bootstrap'
 
 Legion::Logging.setup(level: 'fatal')
 
@@ -323,6 +325,91 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions][:agentic]).to eq({ allowed: nil, blocked: [] })
       expect(defaults[:extensions][:reserved_prefixes]).to include('agentic', 'core', 'ai', 'gaia')
       expect(defaults[:extensions][:reserved_words]).to include('transport', 'cache', 'data')
+    end
+  end
+
+  describe '#load_dns_bootstrap' do
+    let(:cache_dir) { Dir.mktmpdir('legion_dns_test') }
+
+    after { FileUtils.rm_rf(cache_dir) }
+
+    context 'when default_domain is nil' do
+      it 'does nothing' do
+        loader.settings[:dns] = { default_domain: nil, bootstrap: { enabled: true } }
+        expect { loader.load_dns_bootstrap(cache_dir: cache_dir) }.not_to raise_error
+      end
+    end
+
+    context 'when bootstrap is disabled via env var' do
+      before { ENV['LEGION_DNS_BOOTSTRAP'] = 'false' }
+      after { ENV.delete('LEGION_DNS_BOOTSTRAP') }
+
+      it 'skips bootstrap' do
+        loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
+        expect(Legion::Settings::DnsBootstrap).not_to receive(:new)
+        loader.load_dns_bootstrap(cache_dir: cache_dir)
+      end
+    end
+
+    context 'when cache file exists' do
+      let(:cache_json) do
+        meta = '"_dns_bootstrap_meta":{"fetched_at":"2026-01-01T00:00:00Z",' \
+               '"hostname":"legion-bootstrap.example.com",' \
+               '"url":"https://legion-bootstrap.example.com/legion/bootstrap.json"}'
+        "{\"transport\":{\"host\":\"cached.example.com\"},#{meta}}"
+      end
+
+      it 'loads from cache without blocking fetch' do
+        File.write(File.join(cache_dir, '_dns_bootstrap.json'), cache_json)
+        loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
+        loader.load_dns_bootstrap(cache_dir: cache_dir)
+        expect(loader[:transport][:host]).to eq('cached.example.com')
+      end
+
+      it 'populates dns.corp_bootstrap metadata' do
+        File.write(File.join(cache_dir, '_dns_bootstrap.json'), cache_json)
+        loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
+        loader.load_dns_bootstrap(cache_dir: cache_dir)
+        expect(loader[:dns][:corp_bootstrap][:discovered]).to eq(true)
+        expect(loader[:dns][:corp_bootstrap][:hostname]).to eq('legion-bootstrap.example.com')
+      end
+    end
+
+    context 'when no cache and fetch succeeds (first boot)' do
+      it 'fetches, caches, and merges config' do
+        loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
+        bootstrap = instance_double(Legion::Settings::DnsBootstrap,
+                                    default_domain: 'example.com',
+                                    hostname:       'legion-bootstrap.example.com',
+                                    url:            'https://legion-bootstrap.example.com/legion/bootstrap.json',
+                                    cache_path:     File.join(cache_dir, '_dns_bootstrap.json'),
+                                    cache_exists?:  false)
+        allow(Legion::Settings::DnsBootstrap).to receive(:new).and_return(bootstrap)
+        allow(bootstrap).to receive(:fetch).and_return({ transport: { host: 'fetched.example.com' } })
+        allow(bootstrap).to receive(:write_cache)
+
+        loader.load_dns_bootstrap(cache_dir: cache_dir)
+        expect(bootstrap).to have_received(:fetch)
+        expect(bootstrap).to have_received(:write_cache)
+        expect(loader[:transport][:host]).to eq('fetched.example.com')
+      end
+    end
+
+    context 'when no cache and fetch fails (first boot)' do
+      it 'continues without bootstrap config' do
+        loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
+        bootstrap = instance_double(Legion::Settings::DnsBootstrap,
+                                    default_domain: 'example.com',
+                                    hostname:       'legion-bootstrap.example.com',
+                                    url:            'https://legion-bootstrap.example.com/legion/bootstrap.json',
+                                    cache_path:     File.join(cache_dir, '_dns_bootstrap.json'),
+                                    cache_exists?:  false)
+        allow(Legion::Settings::DnsBootstrap).to receive(:new).and_return(bootstrap)
+        allow(bootstrap).to receive(:fetch).and_return(nil)
+
+        loader.load_dns_bootstrap(cache_dir: cache_dir)
+        expect(loader[:transport]).to eq({ connected: false })
+      end
     end
   end
 

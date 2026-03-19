@@ -3,6 +3,7 @@
 require 'resolv'
 require 'socket'
 require 'legion/settings/os'
+require_relative 'dns_bootstrap'
 
 module Legion
   module Settings
@@ -129,6 +130,27 @@ module Legion
         load_api_env
       end
 
+      def load_dns_bootstrap(cache_dir: nil)
+        return if ENV['LEGION_DNS_BOOTSTRAP'] == 'false'
+
+        domain = @settings.dig(:dns, :default_domain)
+        return unless domain
+        return unless @settings.dig(:dns, :bootstrap, :enabled)
+
+        dir = cache_dir || File.expand_path('~/.legionio/settings')
+        bootstrap = DnsBootstrap.new(default_domain: domain, cache_dir: dir)
+
+        config = if bootstrap.cache_exists?
+                   load_dns_from_cache(bootstrap)
+                 else
+                   load_dns_first_boot(bootstrap)
+                 end
+
+        return unless config
+
+        merge_dns_config(config, bootstrap)
+      end
+
       def load_module_settings(config)
         @settings = deep_merge(config, @settings)
       end
@@ -196,6 +218,39 @@ module Legion
       end
 
       private
+
+      def load_dns_from_cache(bootstrap)
+        config = bootstrap.read_cache
+        start_dns_background_refresh(bootstrap) if config
+        config
+      end
+
+      def load_dns_first_boot(bootstrap)
+        Legion::Logging.debug("DNS bootstrap: first boot, fetching from #{bootstrap.url}")
+        config = bootstrap.fetch
+        bootstrap.write_cache(config) if config
+        config
+      end
+
+      def merge_dns_config(config, bootstrap)
+        @settings = deep_merge(config, @settings)
+        @settings[:dns] ||= {}
+        @settings[:dns][:corp_bootstrap] = {
+          discovered: true,
+          hostname:   bootstrap.hostname,
+          url:        bootstrap.url
+        }
+        @indifferent_access = false
+      end
+
+      def start_dns_background_refresh(bootstrap)
+        Thread.new do
+          fresh = bootstrap.fetch
+          bootstrap.write_cache(fresh) if fresh
+        rescue StandardError
+          # Background refresh is best-effort
+        end
+      end
 
       def setting_category(category)
         @settings[category].map do |name, details|
