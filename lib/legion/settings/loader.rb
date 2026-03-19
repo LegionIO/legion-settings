@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'resolv'
 require 'socket'
 require 'legion/settings/os'
 
@@ -17,6 +18,17 @@ module Legion
         @settings = default_settings
         @indifferent_access = false
         @loaded_files = []
+      end
+
+      def dns_defaults
+        resolv_config = read_resolv_config
+        {
+          fqdn:           detect_fqdn,
+          default_domain: resolv_config[:search_domains]&.first,
+          search_domains: resolv_config[:search_domains] || [],
+          nameservers:    resolv_config[:nameservers] || [],
+          bootstrap:      { enabled: true }
+        }
       end
 
       def client_defaults
@@ -71,7 +83,8 @@ module Legion
           },
           transport:                  { connected: false },
           data:                       { connected: false },
-          role:                       { profile: nil, extensions: [] }
+          role:                       { profile: nil, extensions: [] },
+          dns:                        dns_defaults
         }
       end
 
@@ -300,6 +313,25 @@ module Legion
         }.merge(data)
         Legion::Logging.error(message)
         raise(Error, message)
+      end
+
+      def read_resolv_config
+        config = Resolv::DNS::Config.default_config_hash
+        {
+          search_domains: config[:search]&.map(&:to_s)&.uniq,
+          nameservers:    config[:nameserver]&.map(&:to_s)&.uniq
+        }
+      rescue StandardError
+        { search_domains: [], nameservers: [] }
+      end
+
+      def detect_fqdn
+        fqdn = Addrinfo.getaddrinfo(Socket.gethostname, nil).first&.canonname
+        return nil if fqdn.nil?
+
+        fqdn.include?('.') ? fqdn : nil
+      rescue StandardError
+        nil
       end
     end
   end

@@ -31,6 +31,35 @@ RSpec.describe Legion::Settings::Loader do
     end
   end
 
+  describe '#dns_defaults' do
+    subject(:dns) { loader.dns_defaults }
+
+    it 'returns a hash' do
+      expect(dns).to be_a(Hash)
+    end
+
+    it 'has a default_domain key' do
+      expect(dns).to have_key(:default_domain)
+    end
+
+    it 'has a search_domains array' do
+      expect(dns[:search_domains]).to be_an(Array)
+    end
+
+    it 'has a nameservers array' do
+      expect(dns[:nameservers]).to be_an(Array)
+    end
+
+    it 'has an fqdn string or nil' do
+      expect(dns[:fqdn]).to be_a(String).or be_nil
+    end
+
+    it 'has a bootstrap hash' do
+      expect(dns[:bootstrap]).to be_a(Hash)
+      expect(dns[:bootstrap][:enabled]).to eq(true)
+    end
+  end
+
   describe '#default_settings' do
     subject(:defaults) { loader.default_settings }
 
@@ -71,6 +100,13 @@ RSpec.describe Legion::Settings::Loader do
     it 'has transport and data as not connected' do
       expect(defaults[:transport]).to eq({ connected: false })
       expect(defaults[:data]).to eq({ connected: false })
+    end
+
+    it 'has dns settings' do
+      expect(defaults[:dns]).to be_a(Hash)
+      expect(defaults[:dns]).to have_key(:default_domain)
+      expect(defaults[:dns]).to have_key(:search_domains)
+      expect(defaults[:dns]).to have_key(:nameservers)
     end
   end
 
