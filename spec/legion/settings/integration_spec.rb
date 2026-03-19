@@ -1,8 +1,13 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'tmpdir'
+require 'fileutils'
+require 'legion/logging'
 require 'legion/settings/schema'
 require 'legion/settings/validation_error'
+
+Legion::Logging.setup(log_level: 'warn', level: 'warn', trace: false)
 
 RSpec.describe 'Settings validation integration' do
   before do
@@ -70,5 +75,42 @@ RSpec.describe 'Settings validation integration' do
       Legion::Settings.merge_settings('clean', { flag: true })
       expect(Legion::Settings.errors).to be_an(Array)
     end
+  end
+end
+
+RSpec.describe 'DNS bootstrap override behavior' do
+  let(:loader) { Legion::Settings::Loader.new }
+  let(:cache_dir) { Dir.mktmpdir('legion_dns_override_test') }
+  let(:local_dir) { Dir.mktmpdir('legion_local_test') }
+
+  after do
+    FileUtils.rm_rf(cache_dir)
+    FileUtils.rm_rf(local_dir)
+  end
+
+  it 'local files override DNS bootstrap values' do
+    # Seed DNS cache with transport host
+    cache_file = File.join(cache_dir, '_dns_bootstrap.json')
+    File.write(cache_file,
+               '{"transport":{"host":"dns.example.com","port":5672},"_dns_bootstrap_meta":{"fetched_at":"2026-01-01T00:00:00Z","hostname":"test","url":"https://test"}}')
+
+    # Create local override file
+    File.write(File.join(local_dir, 'transport.json'), '{"transport":{"host":"local.example.com"}}')
+
+    # Load in correct order: DNS bootstrap first, then local dir
+    loader.load_dns_bootstrap(cache_dir: cache_dir)
+    loader.load_directory(local_dir)
+
+    # Local wins on host, DNS provides port
+    expect(loader[:transport][:host]).to eq('local.example.com')
+    expect(loader[:transport][:port]).to eq(5672)
+  end
+
+  it 'DNS bootstrap values remain when no local override exists' do
+    cache_file = File.join(cache_dir, '_dns_bootstrap.json')
+    File.write(cache_file, '{"transport":{"host":"dns.example.com"},"_dns_bootstrap_meta":{"fetched_at":"2026-01-01T00:00:00Z","hostname":"test","url":"https://test"}}')
+
+    loader.load_dns_bootstrap(cache_dir: cache_dir)
+    expect(loader[:transport][:host]).to eq('dns.example.com')
   end
 end
