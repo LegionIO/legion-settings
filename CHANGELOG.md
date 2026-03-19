@@ -1,5 +1,14 @@
 # Legion::Settings Changelog
 
+## [1.3.5] - 2026-03-19
+
+### Added
+- DNS-based bootstrap discovery: auto-detect corporate config from `legion-bootstrap.<search-domain>`
+- `Settings[:dns]` populated with FQDN, default domain, search domains, and nameservers
+- `DnsBootstrap` class with DNS resolution, HTTPS fetch, local caching, and background refresh
+- First boot blocks on fetch; subsequent boots use cache with async refresh
+- Opt-out via `LEGION_DNS_BOOTSTRAP=false` environment variable
+
 ## [1.3.4] - 2026-03-18
 
 ### Fixed
