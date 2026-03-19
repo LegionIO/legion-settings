@@ -8,7 +8,7 @@
 Hash-like configuration store for the LegionIO framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems. Includes schema-based validation with type inference, enum constraints, and cross-module checks.
 
 **GitHub**: https://github.com/LegionIO/legion-settings
-**Version**: 1.3.4
+**Version**: 1.3.5
 **License**: Apache-2.0
 
 ## Architecture
@@ -27,10 +27,18 @@ Legion::Settings (singleton module)
 │
 ├── Loader               # Core: loads env vars, files, directories, merges settings
 │   ├── .load_env        # Load environment variables (LEGION_API_PORT)
+│   ├── .load_dns_bootstrap  # DNS-based corporate config discovery (baseline defaults)
 │   ├── .load_file       # Load single JSON file
 │   ├── .load_directory  # Load all JSON files from directory
 │   ├── .load_module_settings    # Merge with module priority
 │   └── .load_module_default     # Merge with default priority
+│
+├── DnsBootstrap         # DNS-based corporate config auto-discovery
+│   ├── .resolve?        # Check if legion-bootstrap.<domain> resolves
+│   ├── .fetch           # HTTPS GET /legion/bootstrap.json
+│   ├── .write_cache     # Atomic write to ~/.legionio/settings/_dns_bootstrap.json
+│   ├── .read_cache      # Read + strip metadata, delete if corrupted
+│   └── .cache_exists?   # Check for cached config
 │
 ├── Schema               # Type inference, validation, unknown key detection
 │   ├── .register        # Infer types from defaults
@@ -46,7 +54,9 @@ Legion::Settings (singleton module)
 ### Key Design Patterns
 
 - **Auto-Load on Access**: `Legion::Settings[:key]` auto-loads if not initialized
+- **DNS Bootstrap Discovery**: On load, resolves `legion-bootstrap.<search-domain>` to fetch corporate baseline config. First boot blocks; subsequent boots use cache + async refresh. Disabled via `LEGION_DNS_BOOTSTRAP=false`
 - **Directory-Based Config**: Loads all `.json` files from config directories (default paths: `/etc/legionio`, `~/legionio`, `./settings`)
+- **Load Priority** (lowest to highest): hardcoded defaults < DNS bootstrap < local JSON files < CLI flags < secret resolution
 - **Module Merging**: Each Legion module registers its defaults via `merge_settings` during startup
 - **Schema Inference**: Types are inferred from default values — no manual schema definitions needed
 - **Two-Pass Validation**: Per-module on merge (catches type mismatches immediately) + cross-module on `validate!` (catches dependency conflicts)
@@ -70,13 +80,15 @@ Legion::Settings (singleton module)
 | `lib/legion/settings/validation_error.rb` | Error collection and formatted reporting |
 | `lib/legion/settings/os.rb` | OS detection helpers |
 | `lib/legion/settings/resolver.rb` | Secret resolution: `vault://` and `env://` URI references, fallback chains |
+| `lib/legion/settings/dns_bootstrap.rb` | DNS-based corporate config discovery, caching, background refresh |
 | `lib/legion/settings/version.rb` | VERSION constant |
 | `spec/legion/settings_spec.rb` | Core settings module tests |
 | `spec/legion/settings_module_spec.rb` | Module-level accessor and merge tests |
 | `spec/legion/loader_spec.rb` | Loader: env/file/directory loading tests |
 | `spec/legion/settings/schema_spec.rb` | Schema validation tests |
 | `spec/legion/settings/validation_error_spec.rb` | Error formatting tests |
-| `spec/legion/settings/integration_spec.rb` | End-to-end validation tests |
+| `spec/legion/settings/integration_spec.rb` | End-to-end validation + DNS bootstrap override tests |
+| `spec/legion/settings/dns_bootstrap_spec.rb` | DnsBootstrap class tests (resolve, fetch, cache) |
 | `spec/legion/settings/role_defaults_spec.rb` | Role profile default settings tests |
 | `spec/legion/settings/resolver_spec.rb` | Secret resolver tests (env://, vault://, lease://, fallback chains) |
 
