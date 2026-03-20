@@ -1,0 +1,11 @@
+{
+  "name": "json-agent",
+  "version": "1.0",
+  "description": "JSON test agent",
+  "runner": {
+    "functions": [
+      { "name": "process", "type": "http", "url": "http://localhost:9999/api" }
+    ]
+  },
+  "actor": { "type": "interval", "interval": 60 }
+}

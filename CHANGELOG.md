@@ -1,5 +1,13 @@
 # Legion::Settings Changelog
 
+## [1.3.8] - 2026-03-20
+
+### Added
+- `AgentLoader` module for loading YAML/JSON agent definitions from a directory
+- `AgentLoader.load_agents(directory)` — returns validated agent definitions as symbol-keyed hashes
+- `AgentLoader.load_file(path)` — parses `.yaml`, `.yml`, and `.json` agent definition files
+- `AgentLoader.valid?(definition)` — validates required `name` and `runner.functions` keys
+
 ## [1.3.7] - 2026-03-20
 
 ### Added

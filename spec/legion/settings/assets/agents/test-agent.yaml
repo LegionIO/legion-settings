@@ -1,0 +1,17 @@
+name: test-agent
+version: "1.0"
+description: "Test agent"
+runner:
+  functions:
+    - name: greet
+      type: llm
+      prompt: "Hello {{payload.name}}"
+      model: claude-sonnet-4-6
+    - name: run_script
+      type: script
+      command: "echo hello"
+actor:
+  type: subscription
+  queue: test_queue
+settings:
+  max_retries: 3
