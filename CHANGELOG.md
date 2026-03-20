@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.6] - 2026-03-20
+
+### Fixed
+- Guard all `Legion::Logging` calls in loader with `defined?` check to prevent `NameError` when legion-logging is not loaded (fixes CI for downstream gems like legion-transport)
+
 ## [1.3.5] - 2026-03-19
 
 ### Added

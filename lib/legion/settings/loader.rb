@@ -162,7 +162,7 @@ module Legion
       end
 
       def load_file(file)
-        Legion::Logging.debug("Trying to load file #{file}")
+        log_debug("Trying to load file #{file}")
         if File.file?(file) && File.readable?(file)
           begin
             contents = read_config_file(file)
@@ -173,11 +173,11 @@ module Legion
             # @indifferent_access = false
             @loaded_files << file
           rescue Legion::JSON::ParseError => e
-            Legion::Logging.error("config file must be valid json: #{file}")
-            Legion::Logging.error("  parse error: #{e.message}")
+            log_error("config file must be valid json: #{file}")
+            log_error("  parse error: #{e.message}")
           end
         else
-          Legion::Logging.warn("Config file does not exist or is not readable file:#{file}")
+          log_warn("Config file does not exist or is not readable file:#{file}")
         end
       end
 
@@ -199,7 +199,7 @@ module Legion
           @settings[:client][:subscriptions].uniq!
           @indifferent_access = false
         else
-          Legion::Logging.warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
+          log_warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
         end
       end
 
@@ -226,7 +226,7 @@ module Legion
       end
 
       def load_dns_first_boot(bootstrap)
-        Legion::Logging.debug("DNS bootstrap: first boot, fetching from #{bootstrap.url}")
+        log_debug("DNS bootstrap: first boot, fetching from #{bootstrap.url}")
         config = bootstrap.fetch
         bootstrap.write_cache(config) if config
         config
@@ -285,7 +285,7 @@ module Legion
 
         @settings[:api] ||= {}
         @settings[:api][:port] = ENV['LEGION_API_PORT'].to_i
-        Legion::Logging.warn("using api port environment variable, api: #{@settings[:api]}")
+        log_warn("using api port environment variable, api: #{@settings[:api]}")
         @indifferent_access = false
       end
 
@@ -355,18 +355,30 @@ module Legion
         'unknown'
       end
 
+      def log_debug(message)
+        Legion::Logging.debug(message) if defined?(Legion::Logging)
+      end
+
+      def log_warn(message)
+        defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+      end
+
+      def log_error(message)
+        defined?(Legion::Logging) ? Legion::Logging.error(message) : warn(message)
+      end
+
       def warning(message, data = {})
         @warnings << {
           message: message
         }.merge(data)
-        Legion::Logging.warn(message)
+        log_warn(message)
       end
 
       def load_error(message, data = {})
         @errors << {
           message: message
         }.merge(data)
-        Legion::Logging.error(message)
+        log_error(message)
         raise(Error, message)
       end
 
