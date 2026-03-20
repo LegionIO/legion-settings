@@ -128,6 +128,7 @@ module Legion
 
       def load_env
         load_api_env
+        load_privacy_env
       end
 
       def load_dns_bootstrap(cache_dir: nil)
@@ -286,6 +287,13 @@ module Legion
         @settings[:api] ||= {}
         @settings[:api][:port] = ENV['LEGION_API_PORT'].to_i
         log_warn("using api port environment variable, api: #{@settings[:api]}")
+        @indifferent_access = false
+      end
+
+      def load_privacy_env
+        return unless ENV['LEGION_ENTERPRISE_PRIVACY'] == 'true'
+
+        @settings[:enterprise_data_privacy] = true
         @indifferent_access = false
       end
 

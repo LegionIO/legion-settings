@@ -1,5 +1,11 @@
 # Legion::Settings Changelog
 
+## [1.3.7] - 2026-03-20
+
+### Added
+- `enterprise_privacy?` class method: returns true when `LEGION_ENTERPRISE_PRIVACY=true` env var or `enterprise_data_privacy` setting is set
+- `LEGION_ENTERPRISE_PRIVACY` env var loaded into settings via `Loader#load_privacy_env`
+
 ## [1.3.6] - 2026-03-20
 
 ### Fixed

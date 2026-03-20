@@ -75,6 +75,14 @@ module Legion
         false
       end
 
+      def enterprise_privacy?
+        return true if ENV['LEGION_ENTERPRISE_PRIVACY'] == 'true'
+
+        Legion::Settings[:enterprise_data_privacy] ? true : false
+      rescue StandardError
+        false
+      end
+
       def validate!
         @loader = load if @loader.nil?
         revalidate_all_modules
