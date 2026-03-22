@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.13] - 2026-03-22
+
+### Changed
+- Updated `legion-json` dependency version constraint from `>= 1.2` to `>= 1.2.0` (explicit 3-part version)
+
 ## [1.3.12] - 2026-03-22
 
 ### Changed
