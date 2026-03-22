@@ -85,6 +85,9 @@ module Legion
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
+          region:                     { current: nil, primary: nil, failover: nil, peers: [],
+                                        default_affinity: 'prefer_local', data_residency: {} },
+          process:                    { role: 'full' },
           dns:                        dns_defaults
         }
       end

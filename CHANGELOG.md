@@ -1,5 +1,13 @@
 # Legion::Settings Changelog
 
+## [1.3.9] - 2026-03-21
+
+### Added
+- `region` settings block: `current`, `primary`, `failover`, `peers`, `default_affinity` (prefer_local), `data_residency`
+- `process` settings block: `role` (default: 'full') for process role configuration
+- `:region` and `:process` added to `CORE_MODULES` for schema validation coverage
+- 16 new specs (262 total, 0 failures)
+
 ## [1.3.8] - 2026-03-20
 
 ### Added

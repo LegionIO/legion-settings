@@ -9,7 +9,7 @@ require 'legion/settings/validation_error'
 
 module Legion
   module Settings
-    CORE_MODULES = %i[transport cache crypt data logging client].freeze
+    CORE_MODULES = %i[transport cache crypt data logging client region process].freeze
 
     class << self
       attr_accessor :loader
