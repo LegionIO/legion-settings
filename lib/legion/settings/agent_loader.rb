@@ -17,6 +17,7 @@ module Legion
             definition = load_file(path)
             next unless definition && valid?(definition)
 
+            log_debug("Agent loaded: #{definition[:name]} (#{path})")
             definition.merge(_source_path: path, _source_mtime: File.mtime(path))
           end
         end
@@ -27,7 +28,8 @@ module Legion
           when '.yaml', '.yml' then YAML.safe_load(content, symbolize_names: true)
           when '.json'         then ::JSON.parse(content, symbolize_names: true)
           end
-        rescue StandardError
+        rescue StandardError => e
+          log_warn("Failed to parse agent file #{path}: #{e.message}")
           nil
         end
 
@@ -38,6 +40,16 @@ module Legion
           return false if definition[:runner][:functions].empty?
 
           true
+        end
+
+        private
+
+        def log_debug(message)
+          Legion::Logging.debug(message) if defined?(Legion::Logging)
+        end
+
+        def log_warn(message)
+          defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
         end
       end
     end

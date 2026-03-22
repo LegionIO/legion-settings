@@ -157,10 +157,14 @@ module Legion
       end
 
       def load_module_settings(config)
+        mod_name = config.keys.first
+        log_debug("Loading module settings: #{mod_name}")
         @settings = deep_merge(config, @settings)
       end
 
       def load_module_default(config)
+        mod_name = config.keys.first
+        log_debug("Loading module defaults: #{mod_name}")
         merged = deep_merge(@settings, config)
         deep_diff(@settings, merged) unless @loaded_files.empty?
         @settings = merged
@@ -189,9 +193,9 @@ module Legion
       def load_directory(directory)
         path = directory.gsub(/\\(?=\S)/, '/')
         if File.readable?(path) && File.executable?(path)
-          Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq.each do |file|
-            load_file(file)
-          end
+          files = Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq
+          files.each { |file| load_file(file) }
+          log_debug("Loaded directory #{path}: #{files.size} files")
         else
           load_error('insufficient permissions for loading', directory: directory)
         end
@@ -252,8 +256,8 @@ module Legion
         Thread.new do
           fresh = bootstrap.fetch
           bootstrap.write_cache(fresh) if fresh
-        rescue StandardError
-          # Background refresh is best-effort
+        rescue StandardError => e
+          log_warn("DNS background refresh failed: #{e.message}")
         end
       end
 
@@ -400,7 +404,8 @@ module Legion
           search_domains: config[:search]&.map(&:to_s)&.uniq,
           nameservers:    config[:nameserver]&.map(&:to_s)&.uniq
         }
-      rescue StandardError
+      rescue StandardError => e
+        log_warn("Failed to read resolv config: #{e.message}")
         { search_domains: [], nameservers: [] }
       end
 
@@ -409,7 +414,8 @@ module Legion
         return nil if fqdn.nil?
 
         fqdn.include?('.') ? fqdn : nil
-      rescue StandardError
+      rescue StandardError => e
+        log_warn("Failed to detect FQDN: #{e.message}")
         nil
       end
     end

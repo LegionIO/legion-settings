@@ -43,7 +43,8 @@ module Legion
         return nil unless response.is_a?(Net::HTTPSuccess)
 
         ::JSON.parse(response.body, symbolize_names: true)
-      rescue StandardError
+      rescue StandardError => e
+        log_warn("DNS bootstrap fetch failed for #{@url}: #{e.message}")
         nil
       end
 
@@ -65,15 +66,27 @@ module Legion
         return nil unless File.exist?(@cache_path)
 
         raw = ::JSON.parse(File.read(@cache_path), symbolize_names: true)
+        log_debug("DNS bootstrap cache hit: #{@cache_path}")
         raw.delete(:_dns_bootstrap_meta)
         raw
       rescue ::JSON::ParserError
+        log_warn("DNS bootstrap cache corrupt, deleting: #{@cache_path}")
         FileUtils.rm_f(@cache_path)
         nil
       end
 
       def cache_exists?
         File.exist?(@cache_path)
+      end
+
+      private
+
+      def log_debug(message)
+        Legion::Logging.debug(message) if defined?(Legion::Logging)
+      end
+
+      def log_warn(message)
+        defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
       end
     end
   end

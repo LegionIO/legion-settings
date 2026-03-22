@@ -23,6 +23,7 @@ module Legion
         options[:config_dirs]&.each do |directory|
           @loader.load_directory(directory)
         end
+        logger.info("Settings loaded from #{@loader.loaded_files.size} files")
         @loader
       end
 
@@ -88,9 +89,15 @@ module Legion
         revalidate_all_modules
         run_cross_validations
         detect_unknown_keys
-        return if errors.empty?
+        if errors.empty?
+          logger.info('Settings validation passed')
+          return
+        end
 
-        raise ValidationError, errors unless dev_mode?
+        unless dev_mode?
+          logger.warn("Settings validation failed with #{errors.size} error(s)")
+          raise ValidationError, errors
+        end
 
         warn_validation_errors(errors)
       end
@@ -99,6 +106,7 @@ module Legion
         @loader = load if @loader.nil?
         require 'legion/settings/resolver'
         Resolver.resolve_secrets!(@loader.to_hash)
+        logger.debug('Secret resolution complete')
       end
 
       def schema

@@ -1,5 +1,15 @@
 # Legion::Settings Changelog
 
+## [1.3.11] - 2026-03-22
+
+### Added
+- `loader.rb`: debug logging on `load_directory` (file count), `load_module_settings`, and `load_module_default` (module name)
+- `loader.rb`: warn logging in `start_dns_background_refresh`, `read_resolv_config`, and `detect_fqdn` rescue blocks
+- `settings.rb`: info logging on successful load (file count), validate! success, and debug on resolve_secrets! completion
+- `settings.rb`: warn logging before raising `ValidationError` in production mode
+- `dns_bootstrap.rb`: warn on HTTP fetch failure, debug on cache hit, warn when corrupt cache is deleted
+- `agent_loader.rb`: warn on file parse failure, debug on agent loaded
+
 ## [1.3.10] - 2026-03-22
 
 ### Added
