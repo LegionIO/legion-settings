@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.10] - 2026-03-22
+
+### Added
+- `extensions.parallel_pool_size` setting (default: 24) to control thread pool size for parallel extension loading
+
 ## [1.3.9] - 2026-03-21
 
 ### Added
