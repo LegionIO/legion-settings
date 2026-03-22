@@ -1,1 +1,30 @@
+# Default owner — all files
 * @Esity
+
+# Core library code
+# lib/ @Esity @future-core-team
+
+# Loader (file/env/directory loading, deep merge)
+# lib/legion/settings/loader.rb @Esity @future-core-team
+
+# Schema validation
+# lib/legion/settings/schema.rb @Esity @future-core-team
+# lib/legion/settings/validation_error.rb @Esity @future-core-team
+
+# Secret resolver (vault://, env://, lease://)
+# lib/legion/settings/resolver.rb @Esity @future-security-team
+
+# DNS bootstrap
+# lib/legion/settings/dns_bootstrap.rb @Esity @future-infra-team
+
+# Agent loader (role-based profile filtering)
+# lib/legion/settings/agent_loader.rb @Esity @future-core-team
+
+# Specs
+# spec/ @Esity @future-contributors
+
+# Documentation
+# *.md @Esity @future-docs-team
+
+# CI/CD
+# .github/ @Esity
