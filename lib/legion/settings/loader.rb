@@ -359,7 +359,8 @@ module Legion
 
       def system_hostname
         Socket.gethostname
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("Legion::Settings::Loader#system_hostname failed: #{e.message}") if defined?(Legion::Logging)
         'unknown'
       end
 
@@ -367,7 +368,8 @@ module Legion
         Socket.ip_address_list.find do |address|
           address.ipv4? && !address.ipv4_loopback?
         end.ip_address
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("Legion::Settings::Loader#system_address failed: #{e.message}") if defined?(Legion::Logging)
         'unknown'
       end
 

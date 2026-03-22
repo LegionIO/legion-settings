@@ -27,7 +27,8 @@ module Legion
       def resolve?
         Resolv.getaddress(@hostname)
         true
-      rescue Resolv::ResolvError, Resolv::ResolvTimeout
+      rescue Resolv::ResolvError, Resolv::ResolvTimeout => e
+        log_debug("Legion::Settings::DnsBootstrap#resolve? could not resolve #{@hostname}: #{e.message}")
         false
       end
 

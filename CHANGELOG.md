@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.12] - 2026-03-22
+
+### Changed
+- Added logging to all silent rescue blocks in settings.rb, loader.rb, resolver.rb, and dns_bootstrap.rb
+
 ## [1.3.11] - 2026-03-22
 
 ### Added

@@ -35,14 +35,16 @@ module Legion
         logger.info('Legion::Settings was not loading, auto loading now!') if @loader.nil?
         @loader = load if @loader.nil?
         @loader[key]
-      rescue NoMethodError, TypeError
+      rescue NoMethodError, TypeError => e
+        Legion::Logging.debug("Legion::Settings#[] key=#{key} failed: #{e.message}") if defined?(Legion::Logging)
         nil
       end
 
       def dig(*keys)
         @loader = load if @loader.nil?
         @loader.dig(*keys)
-      rescue NoMethodError, TypeError
+      rescue NoMethodError, TypeError => e
+        Legion::Logging.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}") if defined?(Legion::Logging)
         nil
       end
 
@@ -72,7 +74,8 @@ module Legion
         return true if ENV['LEGION_DEV'] == 'true'
 
         Legion::Settings[:dev] ? true : false
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("Legion::Settings#dev_mode? failed: #{e.message}") if defined?(Legion::Logging)
         false
       end
 
@@ -80,7 +83,8 @@ module Legion
         return true if ENV['LEGION_ENTERPRISE_PRIVACY'] == 'true'
 
         Legion::Settings[:enterprise_data_privacy] ? true : false
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("Legion::Settings#enterprise_privacy? failed: #{e.message}") if defined?(Legion::Logging)
         false
       end
 

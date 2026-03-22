@@ -98,7 +98,8 @@ module Legion
         return false unless defined?(Legion::Settings)
 
         Legion::Settings[:crypt][:vault][:connected] == true
-      rescue StandardError
+      rescue StandardError => e
+        log_debug("Legion::Settings::Resolver#vault_connected? failed: #{e.message}")
         false
       end
 
@@ -164,7 +165,8 @@ module Legion
 
       def lease_manager_available?
         defined?(Legion::Crypt::LeaseManager)
-      rescue StandardError
+      rescue StandardError => e
+        log_debug("Legion::Settings::Resolver#lease_manager_available? failed: #{e.message}")
         false
       end
 
@@ -180,7 +182,8 @@ module Legion
 
         path_parts = path_string.split('.').map(&:to_sym)
         Legion::Crypt::LeaseManager.instance.register_ref(m[1], m[2], path_parts)
-      rescue StandardError
+      rescue StandardError => e
+        log_debug("Legion::Settings::Resolver#register_lease_ref failed for #{path_string}: #{e.message}")
         nil
       end
 
