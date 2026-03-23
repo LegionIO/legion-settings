@@ -4,7 +4,7 @@
 
 ### Added
 - `Loader.default_directories` class method: canonical settings directory discovery with `LEGION_SETTINGS_DIRS` env var override
-- Returns `~/.legionio/settings` + `/etc/legionio/settings` (unix) or `%APPDATA%\legionio\settings` (windows)
+- Returns `~/.legionio/settings` + `/etc/legionio/settings` (unix) or `~/.legionio/settings` + optional `%APPDATA%\legionio\settings` (windows, when APPDATA is set)
 - `log_info` private helper for info-level logging in Loader
 
 ### Changed

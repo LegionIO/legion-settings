@@ -14,7 +14,8 @@ module Legion
       attr_reader :warnings, :errors, :loaded_files, :settings
 
       def self.default_directories
-        return ENV['LEGION_SETTINGS_DIRS'].split(File::PATH_SEPARATOR).map { |p| File.expand_path(p) } if ENV['LEGION_SETTINGS_DIRS']
+        env_dirs = ENV.fetch('LEGION_SETTINGS_DIRS', nil)
+        return env_dirs.split(File::PATH_SEPARATOR).map(&:strip).reject(&:empty?).map { |p| File.expand_path(p) } if env_dirs && !env_dirs.strip.empty?
 
         dirs = [File.expand_path('~/.legionio/settings')]
         if OS.windows?

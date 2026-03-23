@@ -54,10 +54,11 @@ RSpec.describe Legion::Settings::Loader, '.default_directories' do
       before { allow(Legion::Settings::OS).to receive(:windows?).and_return(true) }
 
       it 'includes APPDATA path when APPDATA is set' do
+        appdata = 'C:/Users/Test/AppData/Roaming'
         allow(ENV).to receive(:fetch).and_call_original
-        allow(ENV).to receive(:fetch).with('APPDATA', nil).and_return('C:/Users/Test/AppData/Roaming')
+        allow(ENV).to receive(:fetch).with('APPDATA', nil).and_return(appdata)
         dirs = described_class.default_directories
-        expect(dirs).to include('C:/Users/Test/AppData/Roaming/legionio/settings')
+        expect(dirs).to include(File.join(appdata, 'legionio', 'settings'))
       end
 
       it 'omits APPDATA path when APPDATA is not set' do
@@ -72,7 +73,7 @@ RSpec.describe Legion::Settings::Loader, '.default_directories' do
 
   context 'with LEGION_SETTINGS_DIRS env var' do
     it 'returns only the directories from the env var' do
-      ENV['LEGION_SETTINGS_DIRS'] = '/tmp/a:/tmp/b'
+      ENV['LEGION_SETTINGS_DIRS'] = "/tmp/a#{File::PATH_SEPARATOR}/tmp/b"
       dirs = described_class.default_directories
       expect(dirs).to eq(['/tmp/a', '/tmp/b'])
     end
@@ -87,6 +88,19 @@ RSpec.describe Legion::Settings::Loader, '.default_directories' do
       ENV['LEGION_SETTINGS_DIRS'] = '/tmp/only'
       dirs = described_class.default_directories
       expect(dirs).to eq(['/tmp/only'])
+    end
+
+    it 'treats blank value as unset and returns defaults' do
+      ENV['LEGION_SETTINGS_DIRS'] = '   '
+      allow(Legion::Settings::OS).to receive(:windows?).and_return(false)
+      dirs = described_class.default_directories
+      expect(dirs).to include(File.expand_path('~/.legionio/settings'))
+    end
+
+    it 'filters out empty segments from the path list' do
+      ENV['LEGION_SETTINGS_DIRS'] = "/tmp/a#{File::PATH_SEPARATOR}#{File::PATH_SEPARATOR}/tmp/b"
+      dirs = described_class.default_directories
+      expect(dirs).to eq(['/tmp/a', '/tmp/b'])
     end
 
     it 'ignores default directories entirely' do
