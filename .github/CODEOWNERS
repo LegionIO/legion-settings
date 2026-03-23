@@ -3,5 +3,4 @@
 #
 # To apply: scripts/apply-codeowners.sh legion-settings
 
-* @LegionIO/maintainers
-* @LegionIO/core
+* @LegionIO/maintainers @LegionIO/core

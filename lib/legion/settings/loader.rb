@@ -15,12 +15,15 @@ module Legion
 
       def self.default_directories
         env_dirs = ENV.fetch('LEGION_SETTINGS_DIRS', nil)
-        return env_dirs.split(File::PATH_SEPARATOR).map(&:strip).reject(&:empty?).map { |p| File.expand_path(p) } if env_dirs && !env_dirs.strip.empty?
+        if env_dirs && !env_dirs.strip.empty?
+          env_dirs_list = env_dirs.split(File::PATH_SEPARATOR).map(&:strip).reject(&:empty?).map { |p| File.expand_path(p) }
+          return env_dirs_list unless env_dirs_list.empty?
+        end
 
         dirs = [File.expand_path('~/.legionio/settings')]
         if OS.windows?
           appdata = ENV.fetch('APPDATA', nil)
-          dirs << File.join(appdata, 'legionio', 'settings') if appdata
+          dirs << File.join(appdata, 'legionio', 'settings') if appdata && !appdata.strip.empty?
         else
           dirs << '/etc/legionio/settings'
         end

@@ -68,6 +68,14 @@ RSpec.describe Legion::Settings::Loader, '.default_directories' do
         expect(dirs.size).to eq(1)
         expect(dirs.first).to eq(File.expand_path('~/.legionio/settings'))
       end
+
+      it 'omits APPDATA path when APPDATA is blank' do
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch).with('APPDATA', nil).and_return('  ')
+        dirs = described_class.default_directories
+        expect(dirs.size).to eq(1)
+        expect(dirs.first).to eq(File.expand_path('~/.legionio/settings'))
+      end
     end
   end
 
@@ -95,6 +103,14 @@ RSpec.describe Legion::Settings::Loader, '.default_directories' do
       allow(Legion::Settings::OS).to receive(:windows?).and_return(false)
       dirs = described_class.default_directories
       expect(dirs).to include(File.expand_path('~/.legionio/settings'))
+    end
+
+    it 'falls back to defaults when value contains only separators' do
+      ENV['LEGION_SETTINGS_DIRS'] = "#{File::PATH_SEPARATOR}#{File::PATH_SEPARATOR}"
+      allow(Legion::Settings::OS).to receive(:windows?).and_return(false)
+      dirs = described_class.default_directories
+      expect(dirs).to include(File.expand_path('~/.legionio/settings'))
+      expect(dirs).to include('/etc/legionio/settings')
     end
 
     it 'filters out empty segments from the path list' do
