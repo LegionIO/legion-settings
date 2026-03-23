@@ -1,5 +1,15 @@
 # Legion::Settings Changelog
 
+## [1.3.15] - 2026-03-23
+
+### Added
+- `Loader.default_directories` class method: canonical settings directory discovery with `LEGION_SETTINGS_DIRS` env var override
+- Returns `~/.legionio/settings` + `/etc/legionio/settings` (unix) or `%APPDATA%\legionio\settings` (windows)
+- `log_info` private helper for info-level logging in Loader
+
+### Changed
+- `load_directory` logging upgraded from debug to info level
+
 ## [1.3.14] - 2026-03-22
 
 ### Added

@@ -13,6 +13,19 @@ module Legion
       class Error < RuntimeError; end
       attr_reader :warnings, :errors, :loaded_files, :settings
 
+      def self.default_directories
+        return ENV['LEGION_SETTINGS_DIRS'].split(File::PATH_SEPARATOR).map { |p| File.expand_path(p) } if ENV['LEGION_SETTINGS_DIRS']
+
+        dirs = [File.expand_path('~/.legionio/settings')]
+        if OS.windows?
+          appdata = ENV.fetch('APPDATA', nil)
+          dirs << File.join(appdata, 'legionio', 'settings') if appdata
+        else
+          dirs << '/etc/legionio/settings'
+        end
+        dirs
+      end
+
       def initialize
         @warnings = []
         @errors = []
@@ -195,7 +208,7 @@ module Legion
         if File.readable?(path) && File.executable?(path)
           files = Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq
           files.each { |file| load_file(file) }
-          log_debug("Loaded directory #{path}: #{files.size} files")
+          log_info("Settings: loading directory #{path} (#{files.size} files)")
         else
           load_error('insufficient permissions for loading', directory: directory)
         end
@@ -371,6 +384,10 @@ module Legion
       rescue StandardError => e
         Legion::Logging.debug("Legion::Settings::Loader#system_address failed: #{e.message}") if defined?(Legion::Logging)
         'unknown'
+      end
+
+      def log_info(message)
+        defined?(Legion::Logging) ? Legion::Logging.info(message) : $stdout.puts(message)
       end
 
       def log_debug(message)
