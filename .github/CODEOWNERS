@@ -1,0 +1,6 @@
+# Auto-generated from team-config.yml
+# Team: core
+#
+# To apply: scripts/apply-codeowners.sh legion-settings
+
+* @LegionIO/maintainers @LegionIO/core
