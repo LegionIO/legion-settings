@@ -209,7 +209,7 @@ module Legion
         if File.readable?(path) && File.executable?(path)
           files = Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq
           files.each { |file| load_file(file) }
-          log_info("Settings: loading directory #{path} (#{files.size} files)")
+          log_info("Settings: loaded directory #{path} (#{files.size} files)")
         else
           load_error('insufficient permissions for loading', directory: directory)
         end
