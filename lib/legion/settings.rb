@@ -6,6 +6,7 @@ require 'legion/json/parse_error'
 require 'legion/settings/loader'
 require 'legion/settings/schema'
 require 'legion/settings/validation_error'
+require 'legion/settings/helper'
 
 module Legion
   module Settings

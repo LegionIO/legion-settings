@@ -1,5 +1,12 @@
 # Legion::Settings Changelog
 
+## [1.3.14] - 2026-03-22
+
+### Added
+- `Legion::Settings::Helper` module: injectable `settings` mixin for LEX extensions
+- Derives extension key from `lex_filename` or class name (in priority order)
+- Returns default logger config when no extension settings are configured
+
 ## [1.3.13] - 2026-03-22
 
 ### Changed
