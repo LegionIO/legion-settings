@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.18] - 2026-03-24
+
+### Added
+- `Legion::Settings::Validators::Tls` — validates TLS settings blocks (transport, data, api, security) with warnings for weak verify modes, errors for insecure sslmode in production, and missing cert paths
+
 ## [1.3.17] - 2026-03-24
 
 ### Changed
