@@ -1,5 +1,17 @@
 # Legion::Settings Changelog
 
+## [1.3.17] - 2026-03-24
+
+### Changed
+- `load` is now idempotent: reuses existing Loader, only sets `@loaded` when config files are provided, skips on subsequent calls unless `force: true`
+- `[]`, `dig`, `merge_settings`, `set_prop`, `validate!`, `resolve_secrets!`, `errors` now use lightweight `ensure_loader` (env vars only, no DNS bootstrap) instead of triggering full `load`
+- Module merges via `merge_settings` at require-time no longer trigger DNS bootstrap or create a new Loader
+
+### Added
+- `loaded?` class method to check if settings have been fully loaded with config files
+- `reset!` class method to clear all state (loader, schema, cross-validations) for testing
+- `ensure_loader` private method: creates minimal Loader with env vars only, no DNS bootstrap
+
 ## [1.3.16] - 2026-03-24
 
 ### Fixed

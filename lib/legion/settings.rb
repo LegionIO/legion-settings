@@ -16,16 +16,31 @@ module Legion
       attr_accessor :loader
 
       def load(options = {})
-        @loader = Legion::Settings::Loader.new
-        @loader.load_env
-        @loader.load_dns_bootstrap
+        has_config = options[:config_file] || options[:config_dir] || options[:config_dirs]&.any?
+
+        # Already fully loaded with config files — skip unless forced
+        return @loader if @loaded && !options[:force]
+
+        # Create Loader once; reuse for subsequent calls (preserves module merges)
+        if @loader.nil? || options[:force]
+          @loader = Legion::Settings::Loader.new
+          @loader.load_env
+          @loader.load_dns_bootstrap
+        end
+
         @loader.load_file(options[:config_file]) if options[:config_file]
         @loader.load_directory(options[:config_dir]) if options[:config_dir]
         options[:config_dirs]&.each do |directory|
           @loader.load_directory(directory)
         end
+
+        @loaded = true if has_config
         logger.info("Settings loaded from #{@loader.loaded_files.size} files")
         @loader
+      end
+
+      def loaded?
+        @loaded == true
       end
 
       def get(options = {})
@@ -34,7 +49,7 @@ module Legion
 
       def [](key)
         logger.info('Legion::Settings was not loading, auto loading now!') if @loader.nil?
-        @loader = load if @loader.nil?
+        ensure_loader
         @loader[key]
       rescue NoMethodError, TypeError => e
         Legion::Logging.debug("Legion::Settings#[] key=#{key} failed: #{e.message}") if defined?(Legion::Logging)
@@ -42,7 +57,7 @@ module Legion
       end
 
       def dig(*keys)
-        @loader = load if @loader.nil?
+        ensure_loader
         @loader.dig(*keys)
       rescue NoMethodError, TypeError => e
         Legion::Logging.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}") if defined?(Legion::Logging)
@@ -50,12 +65,12 @@ module Legion
       end
 
       def set_prop(key, value)
-        @loader = load if @loader.nil?
+        ensure_loader
         @loader[key] = value
       end
 
       def merge_settings(key, hash)
-        @loader = load if @loader.nil?
+        ensure_loader
         thing = {}
         thing[key.to_sym] = hash
         @loader.load_module_settings(thing)
@@ -90,7 +105,7 @@ module Legion
       end
 
       def validate!
-        @loader = load if @loader.nil?
+        ensure_loader
         revalidate_all_modules
         run_cross_validations
         detect_unknown_keys
@@ -108,7 +123,7 @@ module Legion
       end
 
       def resolve_secrets!
-        @loader = load if @loader.nil?
+        ensure_loader
         require 'legion/settings/resolver'
         Resolver.resolve_secrets!(@loader.to_hash)
         logger.debug('Secret resolution complete')
@@ -119,8 +134,15 @@ module Legion
       end
 
       def errors
-        @loader = load if @loader.nil?
+        ensure_loader
         @loader.errors
+      end
+
+      def reset!
+        @loader = nil
+        @loaded = nil
+        @schema = nil
+        @cross_validations = nil
       end
 
       def logger
@@ -137,6 +159,14 @@ module Legion
       end
 
       private
+
+      def ensure_loader
+        return @loader if @loader
+
+        @loader = Legion::Settings::Loader.new
+        @loader.load_env
+        @loader
+      end
 
       def cross_validations
         @cross_validations ||= []

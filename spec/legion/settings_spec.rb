@@ -29,6 +29,7 @@ RSpec.describe 'Legion::Settings' do
   include Helpers
 
   before do
+    Legion::Settings.reset!
     @assets_dir = File.join(File.dirname(__FILE__), 'assets')
     @config_file = File.join(@assets_dir, 'config.json')
     @config_dir = File.join(@assets_dir, 'conf.d')
@@ -50,7 +51,7 @@ RSpec.describe 'Legion::Settings' do
   it 'can override the loader singleton' do
     singleton = Legion::Settings.get
     expect(Legion::Settings.get).to eq(singleton)
-    loader = Legion::Settings.load
+    loader = Legion::Settings.load(force: true)
     expect(singleton).to_not eq(loader)
     Legion::Settings.loader = loader
     expect(Legion::Settings.get).to eq(loader)
@@ -77,7 +78,7 @@ end
 
 RSpec.describe 'DNS bootstrap integration' do
   before do
-    Legion::Settings.instance_variable_set(:@loader, nil)
+    Legion::Settings.reset!
   end
 
   it 'calls load_dns_bootstrap during load' do

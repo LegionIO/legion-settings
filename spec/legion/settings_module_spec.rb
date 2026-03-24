@@ -4,9 +4,7 @@ require 'spec_helper'
 
 RSpec.describe Legion::Settings do
   before do
-    described_class.instance_variable_set(:@loader, nil)
-    described_class.instance_variable_set(:@schema, nil)
-    described_class.instance_variable_set(:@cross_validations, nil)
+    described_class.reset!
   end
 
   describe '.load' do
@@ -84,7 +82,7 @@ RSpec.describe Legion::Settings do
     it 'adds schema overrides and validates against them' do
       described_class.merge_settings('svc', { driver: 'http' })
       described_class.define_schema('svc', { driver: { enum: %w[http grpc] } })
-      described_class.load.load_module_settings({ svc: { driver: 'invalid' } })
+      described_class.loader.settings[:svc][:driver] = 'invalid'
       expect { described_class.validate! }.to raise_error(Legion::Settings::ValidationError)
     end
   end
@@ -107,7 +105,7 @@ RSpec.describe Legion::Settings do
 
     it 'raises ValidationError when there are type mismatches' do
       described_class.merge_settings('typed', { port: 8080 })
-      described_class.load.load_module_settings({ typed: { port: 'not_a_number' } })
+      described_class.loader.settings[:typed][:port] = 'not_a_number'
       expect { described_class.validate! }.to raise_error(Legion::Settings::ValidationError)
     end
   end
