@@ -431,4 +431,18 @@ RSpec.describe Legion::Settings::Loader do
       expect(loader[:custom_key]).to eq('test_value')
     end
   end
+
+  describe 'indifferent access reset' do
+    it 'load_module_settings resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_module_settings({ extra: { key: 'value' } })
+      expect(loader['extra']).to eq({ key: 'value' })
+    end
+
+    it 'load_module_default resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_module_default({ extra: { key: 'default_value' } })
+      expect(loader['extra']).to eq({ key: 'default_value' })
+    end
+  end
 end

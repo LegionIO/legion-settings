@@ -177,6 +177,7 @@ module Legion
         mod_name = config.keys.first
         log_debug("Loading module settings: #{mod_name}")
         @settings = deep_merge(config, @settings)
+        @indifferent_access = false
       end
 
       def load_module_default(config)
@@ -185,6 +186,7 @@ module Legion
         merged = deep_merge(@settings, config)
         deep_diff(@settings, merged) unless @loaded_files.empty?
         @settings = merged
+        @indifferent_access = false
       end
 
       def load_file(file)
