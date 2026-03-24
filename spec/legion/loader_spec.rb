@@ -124,7 +124,7 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     it 'has a name with PID' do
-      expect(client[:name]).to include(::Process.pid.to_s)
+      expect(client[:name]).to include(::Process.pid.to_s) # rubocop:disable Style/RedundantConstantBase
     end
 
     it 'has ready set to false' do
