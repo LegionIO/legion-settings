@@ -124,7 +124,7 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     it 'has a name with PID' do
-      expect(client[:name]).to include(Process.pid.to_s)
+      expect(client[:name]).to include(::Process.pid.to_s) # rubocop:disable Style/RedundantConstantBase
     end
 
     it 'has ready set to false' do
@@ -429,6 +429,20 @@ RSpec.describe Legion::Settings::Loader do
     it 'overwrites scalar values via load_file' do
       loader.load_file(config_file)
       expect(loader[:custom_key]).to eq('test_value')
+    end
+  end
+
+  describe 'indifferent access reset' do
+    it 'load_module_settings resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_module_settings({ extra: { key: 'value' } })
+      expect(loader['extra']).to eq({ key: 'value' })
+    end
+
+    it 'load_module_default resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_module_default({ extra: { key: 'default_value' } })
+      expect(loader['extra']).to eq({ key: 'default_value' })
     end
   end
 end

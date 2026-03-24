@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.16] - 2026-03-24
+
+### Fixed
+- `Loader#load_module_settings` and `#load_module_default` now reset `@indifferent_access = false` after replacing `@settings` with a new plain Hash from `deep_merge`, preventing stale state where string key access silently returned nil on subsequent `to_hash` calls (fixes #4)
+
 ## [1.3.15] - 2026-03-23
 
 ### Added
