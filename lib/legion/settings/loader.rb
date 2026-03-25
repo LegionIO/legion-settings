@@ -435,12 +435,16 @@ module Legion
       end
 
       def detect_fqdn
-        fqdn = Addrinfo.getaddrinfo(Socket.gethostname, nil).first&.canonname
+        require 'timeout'
+        fqdn = Timeout.timeout(1) { Addrinfo.getaddrinfo(Socket.gethostname, nil).first&.canonname }
         return nil if fqdn.nil?
 
         fqdn.include?('.') ? fqdn : nil
+      rescue Timeout::Error
+        log_debug('FQDN detection skipped (DNS timeout)')
+        nil
       rescue StandardError => e
-        log_warn("Failed to detect FQDN: #{e.message}")
+        log_debug("FQDN detection skipped (#{e.message.split(':').first})")
         nil
       end
     end

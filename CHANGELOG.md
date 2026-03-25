@@ -1,5 +1,11 @@
 # Legion::Settings Changelog
 
+## [Unreleased]
+
+### Fixed
+- Add 1-second timeout to FQDN detection to prevent boot hang on slow DNS
+- Downgrade FQDN detection failure log from warn to debug
+
 ## [1.3.18] - 2026-03-24
 
 ### Added
