@@ -94,9 +94,19 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions]).to be_a(Hash)
     end
 
-    it 'has logging settings' do
-      expect(defaults[:logging]).to be_a(Hash)
-      expect(defaults[:logging][:level]).to eq('info')
+    it 'has logging settings with all structured keys' do
+      logging = defaults[:logging]
+      expect(logging).to be_a(Hash)
+      expect(logging[:level]).to eq('info')
+      expect(logging[:format]).to eq('text')
+      expect(logging[:async]).to eq(true)
+      expect(logging[:include_pid]).to eq(false)
+      expect(logging[:log_stdout]).to eq(true)
+      expect(logging[:log_file]).to be_nil
+      expect(logging[:transport]).to be_a(Hash)
+      expect(logging[:transport][:enabled]).to eq(false)
+      expect(logging[:transport][:forward_logs]).to eq(true)
+      expect(logging[:transport][:forward_exceptions]).to eq(true)
     end
 
     it 'has transport and data as not connected' do
@@ -109,6 +119,58 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:dns]).to have_key(:default_domain)
       expect(defaults[:dns]).to have_key(:search_domains)
       expect(defaults[:dns]).to have_key(:nameservers)
+    end
+  end
+
+  describe '#logging_defaults' do
+    subject(:logging) { loader.logging_defaults }
+
+    it 'returns a hash' do
+      expect(logging).to be_a(Hash)
+    end
+
+    it 'defaults level to info' do
+      expect(logging[:level]).to eq('info')
+    end
+
+    it 'defaults format to text' do
+      expect(logging[:format]).to eq('text')
+    end
+
+    it 'defaults async to true' do
+      expect(logging[:async]).to eq(true)
+    end
+
+    it 'defaults include_pid to false' do
+      expect(logging[:include_pid]).to eq(false)
+    end
+
+    it 'defaults log_stdout to true' do
+      expect(logging[:log_stdout]).to eq(true)
+    end
+
+    it 'defaults log_file to nil' do
+      expect(logging[:log_file]).to be_nil
+    end
+
+    it 'defaults trace to true' do
+      expect(logging[:trace]).to eq(true)
+    end
+
+    it 'includes a transport sub-hash' do
+      expect(logging[:transport]).to be_a(Hash)
+    end
+
+    it 'defaults transport.enabled to false' do
+      expect(logging[:transport][:enabled]).to eq(false)
+    end
+
+    it 'defaults transport.forward_logs to true' do
+      expect(logging[:transport][:forward_logs]).to eq(true)
+    end
+
+    it 'defaults transport.forward_exceptions to true' do
+      expect(logging[:transport][:forward_exceptions]).to eq(true)
     end
   end
 
