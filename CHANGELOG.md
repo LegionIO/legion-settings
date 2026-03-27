@@ -1,10 +1,13 @@
 # Legion::Settings Changelog
 
-## [Unreleased]
+## [1.3.20] - 2026-03-27
 
 ### Fixed
 - Add 1-second timeout to FQDN detection to prevent boot hang on slow DNS
 - Downgrade FQDN detection failure log from warn to debug
+
+### Added
+- `Resolver#resolve_vault`: debug logging for vault path, key, cache hits, returned data structure, and extracted values
 
 ## [1.3.18] - 2026-03-24
 

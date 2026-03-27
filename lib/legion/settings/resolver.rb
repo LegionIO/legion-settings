@@ -139,19 +139,28 @@ module Legion
       end
 
       def resolve_vault(path, key)
+        log_debug("resolve_vault: path=#{path}, key=#{key}, vault_available=#{@vault_available}")
         return nil unless @vault_available
 
         @vault_cache[path] ||= begin
-          Legion::Crypt.read(path)
+          log_debug("resolve_vault: calling Legion::Crypt.read(#{path.inspect})")
+          result = Legion::Crypt.read(path)
+          log_debug("resolve_vault: read returned #{result.nil? ? 'nil' : "keys=#{result.keys.inspect}"}")
+          result
         rescue StandardError => e
-          log_debug("Settings resolver: vault read failed for #{path}: #{e.message}")
+          log_warn("Settings resolver: vault read failed for #{path}: #{e.class}=#{e.message}")
           nil
         end
 
         data = @vault_cache[path]
-        return nil unless data.is_a?(Hash)
+        unless data.is_a?(Hash)
+          log_debug("resolve_vault: data at #{path} is #{data.class}, returning nil")
+          return nil
+        end
 
-        data[key.to_sym] || data[key.to_s]
+        value = data[key.to_sym] || data[key.to_s]
+        log_debug("resolve_vault: #{path}##{key} = #{value.nil? ? 'nil' : '<present>'}")
+        value
       end
 
       def resolve_lease(name, key)

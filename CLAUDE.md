@@ -8,7 +8,7 @@
 Hash-like configuration store for the LegionIO framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems. Includes schema-based validation with type inference, enum constraints, and cross-module checks.
 
 **GitHub**: https://github.com/LegionIO/legion-settings
-**Version**: 1.3.9
+**Version**: 1.3.19
 **License**: Apache-2.0
 
 ## Architecture
@@ -46,6 +46,8 @@ Legion::Settings (singleton module)
 │   ├── .validate_module # Validate values against schema
 │   └── .detect_unknown_keys  # Find typos via Levenshtein distance
 │
+├── AgentLoader          # Role-based profile loading: filters which extensions to load (profile: core/cognitive/service/dev/custom/nil)
+├── Validators::Tls      # TLS block validator: validates all `tls.*` blocks for required fields, certificate existence, and consistency
 ├── ValidationError      # Collects all errors, raises once with formatted message
 ├── OS                   # OS detection helpers
 └── CORE_MODULES         # [:transport, :cache, :crypt, :data, :logging, :client]
@@ -81,6 +83,8 @@ Legion::Settings (singleton module)
 | `lib/legion/settings/os.rb` | OS detection helpers |
 | `lib/legion/settings/resolver.rb` | Secret resolution: `vault://` and `env://` URI references, fallback chains |
 | `lib/legion/settings/dns_bootstrap.rb` | DNS-based corporate config discovery, caching, background refresh |
+| `lib/legion/settings/agent_loader.rb` | Role-based extension profile filtering (profile: core/cognitive/service/dev/custom/nil) |
+| `lib/legion/settings/validators/tls.rb` | Validates TLS configuration blocks for required fields, cert existence, and consistency |
 | `lib/legion/settings/version.rb` | VERSION constant |
 | `spec/legion/settings_spec.rb` | Core settings module tests |
 | `spec/legion/settings_module_spec.rb` | Module-level accessor and merge tests |
