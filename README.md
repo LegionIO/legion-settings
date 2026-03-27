@@ -2,7 +2,7 @@
 
 Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
-**Version**: 1.3.19
+**Version**: 1.3.22
 
 ## Installation
 
@@ -78,6 +78,31 @@ Legion::Settings.validate!  # raises ValidationError if any settings are invalid
 # Set LEGION_DEV=true or Legion::Settings.set_prop(:dev, true)
 # validate! will warn to $stderr (or Legion::Logging) instead of raising
 ```
+
+### Logging Defaults
+
+The `logging` key includes a `transport` sub-section (new in 1.3.22) that controls whether log events are forwarded over the message bus:
+
+```json
+{
+  "logging": {
+    "level": "info",
+    "format": "text",
+    "log_file": null,
+    "log_stdout": true,
+    "trace": true,
+    "async": true,
+    "include_pid": false,
+    "transport": {
+      "enabled": false,
+      "forward_logs": true,
+      "forward_exceptions": true
+    }
+  }
+}
+```
+
+When `transport.enabled` is `true`, log events and unhandled exceptions are published to the AMQP bus so a central log consumer can aggregate them. Disabled by default to avoid a dependency on `legion-transport` at boot.
 
 ## Requirements
 

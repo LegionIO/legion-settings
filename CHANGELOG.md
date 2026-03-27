@@ -1,6 +1,18 @@
 # Legion::Settings Changelog
 
+## [1.3.22] - 2026-03-27
+
+### Added
+- Specs for `logging_defaults` covering all structured fields including `trace` and `transport.*` sub-keys
+
+### Changed
+- README updated with version badge (1.3.22) and Logging Defaults section documenting `transport` sub-key
+
 ## [1.3.21] - 2026-03-27
+
+### Changed
+- Replace `logging` defaults (`location`, `backtrace_logging`) with structured fields: `format`, `log_file`, `log_stdout`, `async`, `include_pid`, and `transport` sub-key for forwarding flags
+- Extract `logging_defaults` helper method to keep `default_settings` within method length limit
 
 ### Fixed
 - Prefer RFC-1918 private addresses over CGNAT (100.64.0.0/10) in client IP detection

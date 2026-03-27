@@ -58,6 +58,23 @@ module Legion
         }
       end
 
+      def logging_defaults
+        {
+          level:       'info',
+          format:      'text',
+          log_file:    nil,
+          log_stdout:  true,
+          trace:       true,
+          async:       true,
+          include_pid: false,
+          transport:   {
+            enabled:            false,
+            forward_logs:       true,
+            forward_exceptions: true
+          }
+        }
+      end
+
       def default_settings
         {
           client:                     client_defaults,
@@ -94,12 +111,7 @@ module Legion
           default_extension_settings: {
             logger: { level: 'info', trace: false, extended: false }
           },
-          logging:                    {
-            level:             'info',
-            location:          'stdout',
-            trace:             true,
-            backtrace_logging: true
-          },
+          logging:                    logging_defaults,
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
