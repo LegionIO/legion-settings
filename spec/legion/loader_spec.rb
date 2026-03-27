@@ -103,6 +103,7 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:include_pid]).to eq(false)
       expect(logging[:log_stdout]).to eq(true)
       expect(logging[:log_file]).to be_nil
+      expect(logging[:trace]).to eq(true)
       expect(logging[:transport]).to be_a(Hash)
       expect(logging[:transport][:enabled]).to eq(false)
       expect(logging[:transport][:forward_logs]).to eq(true)

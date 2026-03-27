@@ -90,6 +90,7 @@ The `logging` key includes a `transport` sub-section (new in 1.3.21) that contro
     "format": "text",
     "log_file": null,
     "log_stdout": true,
+    "trace": true,
     "async": true,
     "include_pid": false,
     "transport": {
