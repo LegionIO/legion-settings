@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.21] - 2026-03-27
+
+### Fixed
+- Prefer RFC-1918 private addresses over CGNAT (100.64.0.0/10) in client IP detection
+
 ## [1.3.20] - 2026-03-27
 
 ### Fixed

@@ -384,12 +384,18 @@ module Legion
       end
 
       def system_address
-        Socket.ip_address_list.find do |address|
-          address.ipv4? && !address.ipv4_loopback?
-        end.ip_address
+        addresses = Socket.ip_address_list.select { |a| a.ipv4? && !a.ipv4_loopback? }
+        preferred = addresses.find { |a| rfc1918?(a.ip_address) }
+        (preferred || addresses.first)&.ip_address || 'unknown'
       rescue StandardError => e
         Legion::Logging.debug("Legion::Settings::Loader#system_address failed: #{e.message}") if defined?(Legion::Logging)
         'unknown'
+      end
+
+      def rfc1918?(ip)
+        ip.start_with?('10.') ||
+          ip.match?(/\A172\.(1[6-9]|2\d|3[01])\./) ||
+          ip.start_with?('192.168.')
       end
 
       def log_info(message)
