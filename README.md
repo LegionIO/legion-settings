@@ -2,7 +2,7 @@
 
 Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
-**Version**: 1.3.21
+**Version**: 1.3.22
 
 ## Installation
 
@@ -81,7 +81,7 @@ Legion::Settings.validate!  # raises ValidationError if any settings are invalid
 
 ### Logging Defaults
 
-The `logging` key includes a `transport` sub-section (new in 1.3.21) that controls whether log events are forwarded over the message bus:
+The `logging` key includes a `transport` sub-section (new in 1.3.22) that controls whether log events are forwarded over the message bus:
 
 ```json
 {

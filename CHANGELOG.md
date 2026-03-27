@@ -1,5 +1,13 @@
 # Legion::Settings Changelog
 
+## [1.3.22] - 2026-03-27
+
+### Added
+- Specs for `logging_defaults` covering all structured fields including `trace` and `transport.*` sub-keys
+
+### Changed
+- README updated with version badge (1.3.22) and Logging Defaults section documenting `transport` sub-key
+
 ## [1.3.21] - 2026-03-27
 
 ### Changed
