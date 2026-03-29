@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [Unreleased]
+
+### Added
+- Absorber settings defaults (enabled, max_depth, sources: meetings/email/github/files)
+
 ## [1.3.22] - 2026-03-27
 
 ### Added
