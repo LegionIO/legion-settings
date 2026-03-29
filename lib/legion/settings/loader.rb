@@ -75,6 +75,15 @@ module Legion
         }
       end
 
+      def absorbers_defaults
+        {
+          sources: {
+            github: { enabled: true },
+            files:  { enable: true, extensions: %w[pdf docx txt md pptx rtf] }
+          }
+        }
+      end
+
       def default_settings
         {
           client:                     client_defaults,
@@ -112,6 +121,7 @@ module Legion
             logger: { level: 'info', trace: false, extended: false }
           },
           logging:                    logging_defaults,
+          absorbers:                  absorbers_defaults,
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
@@ -406,7 +416,7 @@ module Legion
 
       def rfc1918?(ip)
         ip.start_with?('10.') ||
-          ip.match?(/\A172\.(1[6-9]|2\d|3[01])\./)	||
+          ip.match?(/\A172\.(1[6-9]|2\d|3[01])\./) ||
           ip.start_with?('192.168.')
       end
 

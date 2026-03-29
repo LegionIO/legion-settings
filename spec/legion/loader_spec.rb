@@ -121,6 +121,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:dns]).to have_key(:search_domains)
       expect(defaults[:dns]).to have_key(:nameservers)
     end
+
+    it 'has absorbers settings' do
+      expect(defaults[:absorbers]).to be_a(Hash)
+    end
   end
 
   describe '#logging_defaults' do
@@ -172,6 +176,26 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'defaults transport.forward_exceptions to true' do
       expect(logging[:transport][:forward_exceptions]).to eq(true)
+    end
+  end
+
+  describe '#absorbers_defaults' do
+    subject(:absorbers) { loader.absorbers_defaults }
+
+    it 'returns a hash' do
+      expect(absorbers).to be_a(Hash)
+    end
+
+    it 'defaults sources.github.enabled to true' do
+      expect(absorbers[:sources][:github][:enabled]).to eq(true)
+    end
+
+    it 'defaults sources.files.enable to true' do
+      expect(absorbers[:sources][:files][:enable]).to eq(true)
+    end
+
+    it 'defaults sources.files.extensions to expected list' do
+      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
     end
   end
 
@@ -375,10 +399,6 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions][:gaia]).to include('lex-tick', 'lex-apollo')
     end
 
-    it 'does not include lex-cortex in gaia' do
-      expect(defaults[:extensions][:gaia]).not_to include('lex-cortex')
-    end
-
     it 'includes category registry' do
       cats = defaults[:extensions][:categories]
       expect(cats[:core]).to eq({ type: :list, tier: 1 })
@@ -392,6 +412,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions][:agentic]).to eq({ allowed: nil, blocked: [] })
       expect(defaults[:extensions][:reserved_prefixes]).to include('agentic', 'core', 'ai', 'gaia')
       expect(defaults[:extensions][:reserved_words]).to include('transport', 'cache', 'data')
+    end
+
+    it 'does not include lex-cortex in gaia' do
+      expect(defaults[:extensions][:gaia]).not_to include('lex-cortex')
     end
   end
 
