@@ -62,13 +62,13 @@ module Legion
         {
           level:       'info',
           format:      'text',
-          log_file:    nil,
+          log_file:    './legionio/logs/legion.log',
           log_stdout:  true,
           trace:       true,
           async:       true,
           include_pid: false,
           transport:   {
-            enabled:            false,
+            enabled:            true,
             forward_logs:       true,
             forward_exceptions: true
           }
@@ -92,7 +92,7 @@ module Legion
               lex-conditioner lex-transformer lex-exec lex-lex lex-codegen
             ],
             ai:                 %w[lex-claude lex-openai lex-gemini],
-            gaia:               %w[lex-tick lex-mesh lex-apollo lex-cortex],
+            gaia:               %w[lex-tick lex-mesh lex-apollo],
             categories:         {
               core:    { type: :list, tier: 1 },
               ai:      { type: :list, tier: 2 },
@@ -406,7 +406,7 @@ module Legion
 
       def rfc1918?(ip)
         ip.start_with?('10.') ||
-          ip.match?(/\A172\.(1[6-9]|2\d|3[01])\./) ||
+          ip.match?(/\A172\.(1[6-9]|2\d|3[01])\./)	||
           ip.start_with?('192.168.')
       end
 

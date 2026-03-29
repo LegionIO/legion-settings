@@ -102,10 +102,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:async]).to eq(true)
       expect(logging[:include_pid]).to eq(false)
       expect(logging[:log_stdout]).to eq(true)
-      expect(logging[:log_file]).to be_nil
+      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
       expect(logging[:trace]).to eq(true)
       expect(logging[:transport]).to be_a(Hash)
-      expect(logging[:transport][:enabled]).to eq(false)
+      expect(logging[:transport][:enabled]).to eq(true)
       expect(logging[:transport][:forward_logs]).to eq(true)
       expect(logging[:transport][:forward_exceptions]).to eq(true)
     end
@@ -150,8 +150,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:log_stdout]).to eq(true)
     end
 
-    it 'defaults log_file to nil' do
-      expect(logging[:log_file]).to be_nil
+    it 'defaults log_file to ./legionio/logs/legion.log' do
+      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
     end
 
     it 'defaults trace to true' do
@@ -162,8 +162,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:transport]).to be_a(Hash)
     end
 
-    it 'defaults transport.enabled to false' do
-      expect(logging[:transport][:enabled]).to eq(false)
+    it 'defaults transport.enabled to true' do
+      expect(logging[:transport][:enabled]).to eq(true)
     end
 
     it 'defaults transport.forward_logs to true' do
@@ -373,6 +373,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions][:core]).to include('lex-node', 'lex-tasker')
       expect(defaults[:extensions][:ai]).to include('lex-claude', 'lex-openai', 'lex-gemini')
       expect(defaults[:extensions][:gaia]).to include('lex-tick', 'lex-apollo')
+    end
+
+    it 'does not include lex-cortex in gaia' do
+      expect(defaults[:extensions][:gaia]).not_to include('lex-cortex')
     end
 
     it 'includes category registry' do
