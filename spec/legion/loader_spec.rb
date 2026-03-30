@@ -206,16 +206,16 @@ RSpec.describe Legion::Settings::Loader do
       expect(absorbers[:sources][:email_inbox][:enabled]).to be false
     end
 
-    it 'defaults sources.github.enabled to false' do
-      expect(absorbers[:sources][:github][:enabled]).to be false
+    it 'defaults sources.github.enabled to true' do
+      expect(absorbers[:sources][:github][:enabled]).to be true
     end
 
-    it 'defaults sources.files.enabled to false' do
-      expect(absorbers[:sources][:files][:enabled]).to be false
+    it 'defaults sources.files.enabled to true' do
+      expect(absorbers[:sources][:files][:enabled]).to be true
     end
 
     it 'defaults sources.files.extensions to expected list' do
-      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md])
+      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
     end
   end
 

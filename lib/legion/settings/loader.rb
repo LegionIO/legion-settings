@@ -93,13 +93,13 @@ module Legion
               max_age_days: 30
             },
             github:      {
-              enabled: false,
+              enabled: true,
               events:  %w[pull_request issues]
             },
             files:       {
-              enabled:    false,
+              enabled:    true,
               watch_dirs: [],
-              extensions: %w[pdf docx txt md]
+              extensions: %w[pdf docx txt md pptx rtf]
             }
           }
         }
