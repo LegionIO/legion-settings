@@ -2,6 +2,6 @@
 
 module Legion
   module Settings
-    VERSION = '1.3.23'
+    VERSION = '1.3.24'
   end
 end

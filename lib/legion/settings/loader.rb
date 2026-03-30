@@ -62,13 +62,13 @@ module Legion
         {
           level:       'info',
           format:      'text',
-          log_file:    nil,
+          log_file:    './legionio/logs/legion.log',
           log_stdout:  true,
           trace:       true,
           async:       true,
           include_pid: false,
           transport:   {
-            enabled:            false,
+            enabled:            true,
             forward_logs:       true,
             forward_exceptions: true
           }
@@ -93,13 +93,13 @@ module Legion
               max_age_days: 30
             },
             github:      {
-              enabled: false,
+              enabled: true,
               events:  %w[pull_request issues]
             },
             files:       {
-              enabled:    false,
+              enabled:    true,
               watch_dirs: [],
-              extensions: %w[pdf docx txt md]
+              extensions: %w[pdf docx txt md pptx rtf]
             }
           }
         }
@@ -122,7 +122,7 @@ module Legion
               lex-conditioner lex-transformer lex-exec lex-lex lex-codegen
             ],
             ai:                 %w[lex-claude lex-openai lex-gemini],
-            gaia:               %w[lex-tick lex-mesh lex-apollo lex-cortex],
+            gaia:               %w[lex-tick lex-mesh lex-apollo],
             categories:         {
               core:    { type: :list, tier: 1 },
               ai:      { type: :list, tier: 2 },
@@ -142,14 +142,14 @@ module Legion
             logger: { level: 'info', trace: false, extended: false }
           },
           logging:                    logging_defaults,
+          absorbers:                  absorbers_defaults,
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
           region:                     { current: nil, primary: nil, failover: nil, peers: [],
                                         default_affinity: 'prefer_local', data_residency: {} },
           process:                    { role: 'full' },
-          dns:                        dns_defaults,
-          absorbers:                  absorbers_defaults
+          dns:                        dns_defaults
         }
       end
 

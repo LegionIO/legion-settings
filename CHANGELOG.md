@@ -1,9 +1,28 @@
 # Legion::Settings Changelog
 
-## [Unreleased]
+## [1.3.24] - 2026-03-30
 
 ### Added
-- Absorber settings defaults (enabled, max_depth, sources: meetings/email/github/files)
+- `absorbers_defaults` method providing default settings for absorber sources (enabled, max_depth, sources: meetings/email_inbox/github/files)
+- `absorbers` key in `default_settings` wired to `absorbers_defaults`
+- Spec coverage for `absorbers_defaults` and presence of `absorbers` key in defaults
+- Spec asserting `lex-cortex` is not included in `extensions.gaia` defaults
+
+### Changed
+- `absorbers_defaults`: `sources.github.enabled` now defaults to `true`
+- `absorbers_defaults`: `sources.files.enabled` now defaults to `true`
+- `absorbers_defaults`: `sources.files.extensions` expanded to include `pptx` and `rtf`
+- `logging_defaults`: `log_file` now defaults to `./legionio/logs/legion.log` instead of `nil`
+- `logging_defaults`: `transport.enabled` now defaults to `true` instead of `false`
+- Removed `lex-cortex` from `extensions.gaia` default list
+
+### Fixed
+- Updated specs to match revised `log_file`, `transport.enabled`, and absorbers defaults (closes #7)
+
+## [1.3.23] - 2026-03-30
+
+### Changed
+- Internal refactor: version bump placeholder (superseded by 1.3.24)
 
 ## [1.3.22] - 2026-03-27
 

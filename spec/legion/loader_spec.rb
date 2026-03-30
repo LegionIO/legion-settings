@@ -102,10 +102,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:async]).to eq(true)
       expect(logging[:include_pid]).to eq(false)
       expect(logging[:log_stdout]).to eq(true)
-      expect(logging[:log_file]).to be_nil
+      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
       expect(logging[:trace]).to eq(true)
       expect(logging[:transport]).to be_a(Hash)
-      expect(logging[:transport][:enabled]).to eq(false)
+      expect(logging[:transport][:enabled]).to eq(true)
       expect(logging[:transport][:forward_logs]).to eq(true)
       expect(logging[:transport][:forward_exceptions]).to eq(true)
     end
@@ -120,6 +120,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:dns]).to have_key(:default_domain)
       expect(defaults[:dns]).to have_key(:search_domains)
       expect(defaults[:dns]).to have_key(:nameservers)
+    end
+
+    it 'has absorbers settings' do
+      expect(defaults[:absorbers]).to be_a(Hash)
     end
   end
 
@@ -150,8 +154,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:log_stdout]).to eq(true)
     end
 
-    it 'defaults log_file to nil' do
-      expect(logging[:log_file]).to be_nil
+    it 'defaults log_file to ./legionio/logs/legion.log' do
+      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
     end
 
     it 'defaults trace to true' do
@@ -162,8 +166,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging[:transport]).to be_a(Hash)
     end
 
-    it 'defaults transport.enabled to false' do
-      expect(logging[:transport][:enabled]).to eq(false)
+    it 'defaults transport.enabled to true' do
+      expect(logging[:transport][:enabled]).to eq(true)
     end
 
     it 'defaults transport.forward_logs to true' do
@@ -172,6 +176,46 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'defaults transport.forward_exceptions to true' do
       expect(logging[:transport][:forward_exceptions]).to eq(true)
+    end
+  end
+
+  describe '#absorbers_defaults' do
+    subject(:absorbers) { loader.absorbers_defaults }
+
+    it 'returns a hash' do
+      expect(absorbers).to be_a(Hash)
+    end
+
+    it 'defaults enabled to true' do
+      expect(absorbers[:enabled]).to be true
+    end
+
+    it 'defaults max_depth to 5' do
+      expect(absorbers[:max_depth]).to eq(5)
+    end
+
+    it 'has a sources section' do
+      expect(absorbers[:sources]).to be_a(Hash)
+    end
+
+    it 'defaults sources.meetings.enabled to true' do
+      expect(absorbers[:sources][:meetings][:enabled]).to be true
+    end
+
+    it 'defaults sources.email_inbox.enabled to false' do
+      expect(absorbers[:sources][:email_inbox][:enabled]).to be false
+    end
+
+    it 'defaults sources.github.enabled to true' do
+      expect(absorbers[:sources][:github][:enabled]).to be true
+    end
+
+    it 'defaults sources.files.enabled to true' do
+      expect(absorbers[:sources][:files][:enabled]).to be true
+    end
+
+    it 'defaults sources.files.extensions to expected list' do
+      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
     end
   end
 
@@ -388,6 +432,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions][:agentic]).to eq({ allowed: nil, blocked: [] })
       expect(defaults[:extensions][:reserved_prefixes]).to include('agentic', 'core', 'ai', 'gaia')
       expect(defaults[:extensions][:reserved_words]).to include('transport', 'cache', 'data')
+    end
+
+    it 'does not include lex-cortex in gaia' do
+      expect(defaults[:extensions][:gaia]).not_to include('lex-cortex')
     end
   end
 
