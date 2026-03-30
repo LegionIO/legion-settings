@@ -3,7 +3,7 @@
 ## [1.3.23] - 2026-03-30
 
 ### Added
-- `absorbers_defaults` method providing default settings for absorber sources (GitHub and files with supported extensions)
+- `absorbers_defaults` method providing default settings for absorber sources (enabled, max_depth, sources: meetings/email_inbox/github/files)
 - `absorbers` key in `default_settings` wired to `absorbers_defaults`
 - Spec coverage for `absorbers_defaults` and presence of `absorbers` key in defaults
 - Spec asserting `lex-cortex` is not included in `extensions.gaia` defaults

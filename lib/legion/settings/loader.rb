@@ -77,9 +77,30 @@ module Legion
 
       def absorbers_defaults
         {
-          sources: {
-            github: { enabled: true },
-            files:  { enable: true, extensions: %w[pdf docx txt md pptx rtf] }
+          enabled:   true,
+          max_depth: 5,
+          sources:   {
+            meetings:    {
+              enabled:          true,
+              include_chat:     true,
+              include_files:    true,
+              retention_days:   90,
+              min_duration_min: 5
+            },
+            email_inbox: {
+              enabled:      false,
+              folder:       'inbox',
+              max_age_days: 30
+            },
+            github:      {
+              enabled: false,
+              events:  %w[pull_request issues]
+            },
+            files:       {
+              enabled:    false,
+              watch_dirs: [],
+              extensions: %w[pdf docx txt md]
+            }
           }
         }
       end

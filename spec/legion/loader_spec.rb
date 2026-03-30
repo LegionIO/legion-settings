@@ -186,16 +186,36 @@ RSpec.describe Legion::Settings::Loader do
       expect(absorbers).to be_a(Hash)
     end
 
-    it 'defaults sources.github.enabled to true' do
-      expect(absorbers[:sources][:github][:enabled]).to eq(true)
+    it 'defaults enabled to true' do
+      expect(absorbers[:enabled]).to be true
     end
 
-    it 'defaults sources.files.enable to true' do
-      expect(absorbers[:sources][:files][:enable]).to eq(true)
+    it 'defaults max_depth to 5' do
+      expect(absorbers[:max_depth]).to eq(5)
+    end
+
+    it 'has a sources section' do
+      expect(absorbers[:sources]).to be_a(Hash)
+    end
+
+    it 'defaults sources.meetings.enabled to true' do
+      expect(absorbers[:sources][:meetings][:enabled]).to be true
+    end
+
+    it 'defaults sources.email_inbox.enabled to false' do
+      expect(absorbers[:sources][:email_inbox][:enabled]).to be false
+    end
+
+    it 'defaults sources.github.enabled to false' do
+      expect(absorbers[:sources][:github][:enabled]).to be false
+    end
+
+    it 'defaults sources.files.enabled to false' do
+      expect(absorbers[:sources][:files][:enabled]).to be false
     end
 
     it 'defaults sources.files.extensions to expected list' do
-      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
+      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md])
     end
   end
 
