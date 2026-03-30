@@ -1,5 +1,10 @@
 # Legion::Settings Changelog
 
+## [1.3.24] - 2026-03-30
+
+### Changed
+- Bump version to 1.3.24 for PR #8 release
+
 ## [1.3.23] - 2026-03-30
 
 ### Added
