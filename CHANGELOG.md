@@ -1,5 +1,21 @@
 # Legion::Settings Changelog
 
+## [1.3.23] - 2026-03-30
+
+### Added
+- `absorbers_defaults` method providing default settings for absorber sources (GitHub and files with supported extensions)
+- `absorbers` key in `default_settings` wired to `absorbers_defaults`
+- Spec coverage for `absorbers_defaults` and presence of `absorbers` key in defaults
+- Spec asserting `lex-cortex` is not included in `extensions.gaia` defaults
+
+### Changed
+- `logging_defaults`: `log_file` now defaults to `./legionio/logs/legion.log` instead of `nil`
+- `logging_defaults`: `transport.enabled` now defaults to `true` instead of `false`
+- Removed `lex-cortex` from `extensions.gaia` default list
+
+### Fixed
+- Updated specs to match revised `log_file` and `transport.enabled` defaults (closes #7)
+
 ## [1.3.22] - 2026-03-27
 
 ### Added
