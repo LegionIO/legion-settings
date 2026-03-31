@@ -7,6 +7,8 @@ require 'legion/settings/loader'
 require 'legion/settings/schema'
 require 'legion/settings/validation_error'
 require 'legion/settings/helper'
+require 'legion/settings/overlay'
+require 'legion/settings/project_env'
 
 module Legion
   module Settings
@@ -35,6 +37,7 @@ module Legion
         end
 
         @loaded = true if has_config
+        load_project_env
         logger.info("Settings loaded from #{@loader.loaded_files.size} files")
         @loader
       end
@@ -50,7 +53,15 @@ module Legion
       def [](key)
         logger.info('Legion::Settings was not loading, auto loading now!') if @loader.nil?
         ensure_loader
-        @loader[key]
+        overlay_val = Overlay.overlay_for(key)
+        base_val = @loader[key]
+        if overlay_val.is_a?(Hash) && base_val.is_a?(Hash)
+          deep_merge_for_overlay(base_val, overlay_val)
+        elsif !overlay_val.nil?
+          overlay_val
+        else
+          base_val
+        end
       rescue NoMethodError, TypeError => e
         Legion::Logging.debug("Legion::Settings#[] key=#{key} failed: #{e.message}") if defined?(Legion::Logging)
         nil
@@ -84,6 +95,28 @@ module Legion
 
       def add_cross_validation(&block)
         cross_validations << block
+      end
+
+      # Execute a block with thread-local settings overrides active.
+      # Overlays are nestable — inner overlays merge on top of outer ones.
+      # Resolution order inside the block: overlay > project env > global settings.
+      #
+      # @param overrides [Hash] settings to override for the duration of the block
+      # @yield the block executed with the overlay active
+      # @return the return value of the block
+      def with_overlay(overrides, &)
+        Overlay.with_overlay(overrides, &)
+      end
+
+      # Load (or reload) the nearest `.legionio.env` file into the settings loader.
+      # Searches from Dir.pwd upward.  Env-file values take priority over global
+      # settings but are overridden by a request overlay (with_overlay).
+      #
+      # @param start_dir [String, nil] directory to start searching from (defaults to Dir.pwd)
+      # @return [String, nil] path to the loaded file, or nil if none found
+      def load_project_env(start_dir: nil)
+        ensure_loader
+        ProjectEnv.load_into(@loader.settings, start_dir: start_dir)
       end
 
       def dev_mode?
@@ -143,6 +176,7 @@ module Legion
         @loaded = nil
         @schema = nil
         @cross_validations = nil
+        Overlay.clear_overlay!
       end
 
       def logger
@@ -159,6 +193,19 @@ module Legion
       end
 
       private
+
+      def deep_merge_for_overlay(base, overlay)
+        result = base.dup
+        overlay.each do |key, value|
+          existing = result[key]
+          result[key] = if existing.is_a?(Hash) && value.is_a?(Hash)
+                          deep_merge_for_overlay(existing, value)
+                        else
+                          value
+                        end
+        end
+        result
+      end
 
       def ensure_loader
         return @loader if @loader

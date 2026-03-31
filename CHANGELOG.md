@@ -1,5 +1,15 @@
 # Legion::Settings Changelog
 
+## [1.3.25] - 2026-03-31
+
+### Added
+- `Settings.with_overlay(overrides) { }` — thread-local request-scoped settings overlay for per-tenant LLM routing without node restarts; nestable, cleans up via ensure block (closes #9)
+- `Settings.load_project_env(start_dir:)` — discovers and loads `.legionio.env` from Dir.pwd upward; dot-notation keys (`llm.default_model=haiku`) map to nested settings paths; auto-called during `Settings.load` (closes #10)
+- `Legion::Settings::Overlay` module — thread-local overlay storage with `with_overlay`, `current_overlay`, `overlay_for`, `clear_overlay!`
+- `Legion::Settings::ProjectEnv` module — env file discovery, parsing, and merging
+- Resolution order: request overlay > project `.legionio.env` > global settings
+- 44 new specs covering overlay scoping/nesting/cleanup, thread isolation, `.legionio.env` parsing, discovery, key mapping, and resolution order
+
 ## [1.3.24] - 2026-03-30
 
 ### Added
