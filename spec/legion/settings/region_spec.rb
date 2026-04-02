@@ -26,8 +26,8 @@ RSpec.describe 'Region settings' do
       expect(loader.settings[:region][:peers]).to eq([])
     end
 
-    it 'defaults default_affinity to prefer_local' do
-      expect(loader.settings[:region][:default_affinity]).to eq('prefer_local')
+    it 'defaults default_affinity to any' do
+      expect(loader.settings[:region][:default_affinity]).to eq('any')
     end
 
     it 'defaults data_residency to empty hash' do
@@ -63,7 +63,7 @@ RSpec.describe 'Region settings' do
 
     it 'preserves default_affinity when merging partial config' do
       Legion::Settings.merge_settings(:region, { current: 'us-west-2' })
-      expect(Legion::Settings.dig(:region, :default_affinity)).to eq('prefer_local')
+      expect(Legion::Settings.dig(:region, :default_affinity)).to eq('any')
     end
 
     it 'allows overriding default_affinity via direct mutation' do

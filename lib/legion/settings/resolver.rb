@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging'
+
 module Legion
   module Settings
     module Resolver
+      extend Legion::Logging::Helper
+
       VAULT_PATTERN  = %r{\Avault://(.+?)#(.+)\z}
       ENV_PATTERN    = %r{\Aenv://(.+)\z}
       LEASE_PATTERN  = %r{\Alease://(.+?)#(.+)\z}
@@ -96,8 +100,10 @@ module Legion
       def vault_connected?
         return false unless defined?(Legion::Crypt)
         return false unless defined?(Legion::Settings)
+        return Legion::Crypt.vault_connected? if Legion::Crypt.respond_to?(:vault_connected?)
 
-        Legion::Settings[:crypt][:vault][:connected] == true
+        Legion::Settings[:crypt][:vault][:connected] == true ||
+          (Legion::Crypt.respond_to?(:connected_clusters) && Legion::Crypt.connected_clusters.any?)
       rescue StandardError => e
         log_debug("Legion::Settings::Resolver#vault_connected? failed: #{e.message}")
         false
@@ -219,28 +225,21 @@ module Legion
         end
       end
 
+      def resolve_logger_settings
+        raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+      end
+
       def log_info(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.info(message)
-        else
-          $stdout.puts(message)
-        end
+        log.info(message)
       end
 
       def log_warn(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.warn(message)
-        else
-          warn(message)
-        end
+        log.warn(message)
       end
 
       def log_debug(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.debug(message)
-        else
-          $stdout.puts(message)
-        end
+        log.debug(message)
       end
     end
   end

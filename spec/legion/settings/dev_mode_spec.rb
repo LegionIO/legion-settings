@@ -79,10 +79,12 @@ RSpec.describe 'Legion::Settings dev mode' do
       expect { Legion::Settings.validate! }.not_to raise_error
     end
 
-    it 'writes a warning to $stderr when Legion::Logging is unavailable' do
-      allow(Legion).to receive(:const_defined?).with('Logging').and_return(false)
+    it 'logs a warning through the configured logger' do
+      logger = instance_double('Logger', warn: nil)
+      allow(Legion::Settings).to receive(:logger).and_return(logger)
       inject_type_error
-      expect { Legion::Settings.validate! }.to output(/dev mode/).to_stderr
+      Legion::Settings.validate!
+      expect(logger).to have_received(:warn).with(include('dev mode'))
     end
 
     it 'does not raise when settings are valid' do
@@ -102,18 +104,22 @@ RSpec.describe 'Legion::Settings dev mode' do
   describe 'warning message content' do
     before do
       ENV['LEGION_DEV'] = 'true'
-      allow(Legion).to receive(:const_defined?).with('Logging').and_return(false)
     end
 
     it 'includes error count and module path in the warning' do
+      logger = instance_double('Logger', warn: nil)
+      allow(Legion::Settings).to receive(:logger).and_return(logger)
       inject_type_error
-      expect { Legion::Settings.validate! }.to output(/\[devmod\]/).to_stderr
+      Legion::Settings.validate!
+      expect(logger).to have_received(:warn).with(include('[devmod]'))
     end
 
     it 'uses singular "error" for a single error' do
+      logger = instance_double('Logger', warn: nil)
+      allow(Legion::Settings).to receive(:logger).and_return(logger)
       inject_type_error
-      # Ensure only one error is present (reset and re-inject a single type error)
-      expect { Legion::Settings.validate! }.to output(/configuration error/).to_stderr
+      Legion::Settings.validate!
+      expect(logger).to have_received(:warn).with(include('configuration error'))
     end
   end
 end

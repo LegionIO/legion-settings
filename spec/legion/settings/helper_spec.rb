@@ -52,9 +52,9 @@ RSpec.describe Legion::Settings::Helper do
     end
 
     context 'when no extension settings exist' do
-      it 'returns defaults' do
+      it 'returns an empty hash' do
         obj = with_lex_filename.new
-        expect(obj.settings).to eq({ logger: { level: 'info', extended: false, internal: false } })
+        expect(obj.settings).to eq({})
       end
     end
   end

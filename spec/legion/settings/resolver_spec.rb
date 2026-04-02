@@ -313,6 +313,7 @@ RSpec.describe Legion::Settings::Resolver do
 
     context 'when vault is connected' do
       before do
+        allow(Legion::Settings).to receive(:[]).and_call_original
         allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: true } })
       end
 
@@ -346,8 +347,23 @@ RSpec.describe Legion::Settings::Resolver do
       end
     end
 
+    context 'when a clustered Vault connection is available through Legion::Crypt' do
+      before do
+        allow(Legion::Settings).to receive(:[]).and_call_original
+        allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: false } })
+        allow(Legion::Crypt).to receive(:vault_connected?).and_return(true)
+      end
+
+      it 'resolves vault:// values using the connected cluster path' do
+        settings = { secret: 'vault://secret/data/transport#username' }
+        described_class.resolve_secrets!(settings)
+        expect(settings[:secret]).to eq('vault_user')
+      end
+    end
+
     context 'when vault is not connected' do
       before do
+        allow(Legion::Settings).to receive(:[]).and_call_original
         allow(Legion::Settings).to receive(:[]).with(:crypt).and_return({ vault: { connected: false } })
       end
 

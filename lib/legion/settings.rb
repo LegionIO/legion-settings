@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/json'
+require 'legion/logging'
 require 'legion/settings/version'
 require 'legion/json/parse_error'
 require 'legion/settings/loader'
@@ -51,7 +52,7 @@ module Legion
       end
 
       def [](key)
-        logger.info('Legion::Settings was not loading, auto loading now!') if @loader.nil?
+        logger.info('Legion::Settings was not loaded, auto-loading now') if @loader.nil?
         ensure_loader
         overlay_val = Overlay.overlay_for(key)
         base_val = @loader[key]
@@ -63,7 +64,7 @@ module Legion
           base_val
         end
       rescue NoMethodError, TypeError => e
-        Legion::Logging.debug("Legion::Settings#[] key=#{key} failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#[] key=#{key} failed: #{e.message}")
         nil
       end
 
@@ -71,7 +72,7 @@ module Legion
         ensure_loader
         @loader.dig(*keys)
       rescue NoMethodError, TypeError => e
-        Legion::Logging.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}")
         nil
       end
 
@@ -124,7 +125,7 @@ module Legion
 
         Legion::Settings[:dev] ? true : false
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings#dev_mode? failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#dev_mode? failed: #{e.message}")
         false
       end
 
@@ -133,7 +134,7 @@ module Legion
 
         Legion::Settings[:enterprise_data_privacy] ? true : false
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings#enterprise_privacy? failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#enterprise_privacy? failed: #{e.message}")
         false
       end
 
@@ -212,6 +213,7 @@ module Legion
 
         @loader = Legion::Settings::Loader.new
         @loader.load_env
+        logger.debug('Initialized Legion::Settings loader without config files')
         @loader
       end
 
@@ -224,11 +226,7 @@ module Legion
         label = count == 1 ? 'error' : 'errors'
         message = "Legion::Settings dev mode: #{count} configuration #{label} detected (not raising):\n"
         message += errs.map { |e| "  [#{e[:module]}] #{e[:path]}: #{e[:message]}" }.join("\n")
-        if ::Legion.const_defined?('Logging')
-          ::Legion::Logging.warn(message)
-        else
-          warn(message)
-        end
+        logger.warn(message)
       end
 
       def validate_module_on_merge(mod_name)

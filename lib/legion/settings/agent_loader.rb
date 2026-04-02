@@ -2,10 +2,13 @@
 
 require 'yaml'
 require 'json'
+require 'legion/logging'
 
 module Legion
   module Settings
     module AgentLoader
+      extend Legion::Logging::Helper
+
       EXTENSIONS = %w[.yaml .yml .json].freeze
       GLOB = '*.{yaml,yml,json}'
 
@@ -44,12 +47,17 @@ module Legion
 
         private
 
+        def resolve_logger_settings
+          raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
+          raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+        end
+
         def log_debug(message)
-          Legion::Logging.debug(message) if defined?(Legion::Logging)
+          log.debug(message)
         end
 
         def log_warn(message)
-          defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+          log.warn(message)
         end
       end
     end

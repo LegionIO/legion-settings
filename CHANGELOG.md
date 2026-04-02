@@ -1,5 +1,17 @@
 # Legion::Settings Changelog
 
+## [1.3.26] - 2026-04-02
+
+### Changed
+- Added a runtime dependency on `legion-logging >= 1.4.0` and moved `Settings`, `Loader`, `Resolver`, `ProjectEnv`, and `AgentLoader` onto component-aware logging helpers
+- `extensions.default_extension_settings` now defaults to `{}` instead of injecting a synthetic logger config
+- `Legion::Settings::Helper#settings` now returns `{}` when an extension has no explicit settings
+- `region.default_affinity` now defaults to `any`
+
+### Fixed
+- `Resolver` now treats clustered Vault connectivity from `Legion::Crypt` as available for `vault://` resolution instead of relying only on the top-level `crypt.vault.connected` flag
+- Logger-backed settings code paths now use consistent `log.debug/info/warn/error` behavior instead of mixed direct `Legion::Logging.*` calls
+
 ## [1.3.25] - 2026-03-31
 
 ### Added

@@ -270,8 +270,10 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'logs the filename when JSON is invalid' do
       invalid_file = File.join(assets_dir, 'invalid.json')
-      expect(Legion::Logging).to receive(:error).with(a_string_including(invalid_file))
-      expect(Legion::Logging).to receive(:error).with(a_string_matching(/parse error/))
+      logger = instance_double('Logger', error: nil, debug: nil)
+      allow(loader).to receive(:log).and_return(logger)
+      expect(logger).to receive(:error).with(a_string_including(invalid_file))
+      expect(logger).to receive(:error).with(a_string_matching(/parse error/))
       loader.load_file(invalid_file)
     end
 

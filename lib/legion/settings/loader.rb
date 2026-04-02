@@ -2,6 +2,7 @@
 
 require 'resolv'
 require 'socket'
+require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
 
@@ -9,6 +10,7 @@ module Legion
   module Settings
     class Loader
       include Legion::Settings::OS
+      include Legion::Logging::Helper
 
       class Error < RuntimeError; end
       attr_reader :warnings, :errors, :loaded_files, :settings
@@ -36,6 +38,7 @@ module Legion
         @settings = default_settings
         @indifferent_access = false
         @loaded_files = []
+        log.debug('Initialized Legion::Settings::Loader with default settings')
       end
 
       def dns_defaults
@@ -138,16 +141,14 @@ module Legion
           reload:                     false,
           reloading:                  false,
           auto_install_missing_lex:   true,
-          default_extension_settings: {
-            logger: { level: 'info', trace: false, extended: false }
-          },
+          default_extension_settings: {},
           logging:                    logging_defaults,
           absorbers:                  absorbers_defaults,
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
           region:                     { current: nil, primary: nil, failover: nil, peers: [],
-                                        default_affinity: 'prefer_local', data_residency: {} },
+                                        default_affinity: 'any', data_residency: {} },
           process:                    { role: 'full' },
           dns:                        dns_defaults
         }
@@ -243,6 +244,7 @@ module Legion
             @settings = merged
             # @indifferent_access = false
             @loaded_files << file
+            log.debug("Loaded settings file #{file}")
           rescue Legion::JSON::ParseError => e
             log_error("config file must be valid json: #{file}")
             log_error("  parse error: #{e.message}")
@@ -289,6 +291,11 @@ module Legion
       end
 
       private
+
+      def resolve_logger_settings
+        raw_logging = instance_variable_defined?(:@settings) ? @settings&.[](:logging) : nil
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+      end
 
       def load_dns_from_cache(bootstrap)
         config = bootstrap.read_cache
@@ -422,7 +429,7 @@ module Legion
       def system_hostname
         Socket.gethostname
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings::Loader#system_hostname failed: #{e.message}") if defined?(Legion::Logging)
+        log_debug("Legion::Settings::Loader#system_hostname failed: #{e.message}")
         'unknown'
       end
 
@@ -431,7 +438,7 @@ module Legion
         preferred = addresses.find { |a| rfc1918?(a.ip_address) }
         (preferred || addresses.first)&.ip_address || 'unknown'
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings::Loader#system_address failed: #{e.message}") if defined?(Legion::Logging)
+        log_debug("Legion::Settings::Loader#system_address failed: #{e.message}")
         'unknown'
       end
 
@@ -442,19 +449,19 @@ module Legion
       end
 
       def log_info(message)
-        defined?(Legion::Logging) ? Legion::Logging.info(message) : $stdout.puts(message)
+        log.info(message)
       end
 
       def log_debug(message)
-        Legion::Logging.debug(message) if defined?(Legion::Logging)
+        log.debug(message)
       end
 
       def log_warn(message)
-        defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+        log.warn(message)
       end
 
       def log_error(message)
-        defined?(Legion::Logging) ? Legion::Logging.error(message) : warn(message)
+        log.error(message)
       end
 
       def warning(message, data = {})
