@@ -85,15 +85,11 @@ module Legion
       end
 
       def count_vault_refs(hash)
-        return 0 unless hash.is_a?(Hash)
-
-        hash.sum do |_key, value|
-          case value
-          when String then value.match?(VAULT_PATTERN) ? 1 : 0
-          when Array  then value.count { |v| v.is_a?(String) && v.match?(VAULT_PATTERN) }
-          when Hash   then count_vault_refs(value)
-          else 0
-          end
+        case hash
+        when String then hash.match?(VAULT_PATTERN) ? 1 : 0
+        when Array  then hash.sum { |value| count_vault_refs(value) }
+        when Hash   then hash.sum { |_key, value| count_vault_refs(value) }
+        else 0
         end
       end
 
@@ -109,38 +105,59 @@ module Legion
         false
       end
 
-      def walk(hash, path:, &block)
-        hash.each do |key, value|
-          current_path = path.empty? ? key.to_s : "#{path}.#{key}"
-
-          case value
-          when Hash
-            walk(value, path: current_path, &block)
-          when String
-            next unless value.match?(URI_PATTERN)
-
-            resolved = resolve_single(value)
-            if resolved.nil?
-              log_warn("Settings resolver: could not resolve #{current_path} (#{value})")
-              block&.call(:unresolved)
-            else
-              hash[key] = resolved
-              register_lease_ref(value, current_path) if value.match?(LEASE_PATTERN)
-              block&.call(:resolved)
-            end
-          when Array
-            next unless resolvable_chain?(value)
-
-            resolved = resolve_chain(value)
-            if resolved.nil?
-              log_warn("Settings resolver: fallback chain exhausted for #{current_path}")
-              block&.call(:unresolved)
-            else
-              hash[key] = resolved
-              register_lease_refs_from_chain(value, current_path)
-              block&.call(:resolved)
-            end
+      def walk(hash, path:, &)
+        case hash
+        when Hash
+          hash.each do |key, value|
+            current_path = path.empty? ? key.to_s : "#{path}.#{key}"
+            walk_value(hash, key, value, current_path, &)
           end
+        when Array
+          hash.each_with_index do |value, index|
+            current_path = "#{path}[#{index}]"
+            walk_value(hash, index, value, current_path, &)
+          end
+        end
+      end
+
+      def walk_value(container, key, value, current_path, &)
+        case value
+        when Hash
+          walk(value, path: current_path, &)
+        when String
+          handle_string_value(container, key, value, current_path) { |status| yield(status) if block_given? }
+        when Array
+          handle_array_value(container, key, value, current_path) { |status| yield(status) if block_given? }
+        end
+      end
+
+      def handle_string_value(container, key, value, current_path)
+        return unless value.match?(URI_PATTERN)
+
+        resolved = resolve_single(value)
+        if resolved.nil?
+          log_warn("Settings resolver: could not resolve #{current_path} (#{value})")
+          yield(:unresolved) if block_given?
+        else
+          container[key] = resolved
+          register_lease_ref(value, current_path) if value.match?(LEASE_PATTERN)
+          yield(:resolved) if block_given?
+        end
+      end
+
+      def handle_array_value(container, key, value, current_path, &)
+        if resolvable_chain?(value) && value.all? { |entry| !entry.is_a?(Hash) && !entry.is_a?(Array) }
+          resolved = resolve_chain(value)
+          if resolved.nil?
+            log_warn("Settings resolver: fallback chain exhausted for #{current_path}")
+            yield(:unresolved) if block_given?
+          else
+            container[key] = resolved
+            register_lease_refs_from_chain(value, current_path)
+            yield(:resolved) if block_given?
+          end
+        else
+          walk(value, path: current_path, &)
         end
       end
 
@@ -213,15 +230,11 @@ module Legion
       end
 
       def count_lease_refs(hash)
-        return 0 unless hash.is_a?(Hash)
-
-        hash.sum do |_key, value|
-          case value
-          when String then value.match?(LEASE_PATTERN) ? 1 : 0
-          when Array  then value.count { |v| v.is_a?(String) && v.match?(LEASE_PATTERN) }
-          when Hash   then count_lease_refs(value)
-          else 0
-          end
+        case hash
+        when String then hash.match?(LEASE_PATTERN) ? 1 : 0
+        when Array  then hash.sum { |value| count_lease_refs(value) }
+        when Hash   then hash.sum { |_key, value| count_lease_refs(value) }
+        else 0
         end
       end
 

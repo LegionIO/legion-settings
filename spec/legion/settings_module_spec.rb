@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'fileutils'
+require 'tmpdir'
 
 RSpec.describe Legion::Settings do
   before do
@@ -30,6 +32,23 @@ RSpec.describe Legion::Settings do
       described_class.load(config_dirs: [config_dir])
       expect(described_class[:cache][:namespace]).to eq('test_ns')
     end
+
+    it 'loads .legionio.env during no-arg load' do
+      dir = Dir.mktmpdir('legion_settings_load_test')
+      old_dir = Dir.pwd
+      old_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+      ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
+      File.write(File.join(dir, '.legionio.env'), "project_env_key=project_value\n")
+
+      Dir.chdir(dir) do
+        described_class.load
+        expect(described_class[:project_env_key]).to eq('project_value')
+      end
+    ensure
+      ENV['LEGION_DNS_BOOTSTRAP'] = old_bootstrap
+      Dir.chdir(old_dir)
+      FileUtils.rm_rf(dir)
+    end
   end
 
   describe '.[]' do
@@ -43,6 +62,48 @@ RSpec.describe Legion::Settings do
 
     it 'returns expected default values' do
       expect(described_class[:cache][:driver]).to eq('dalli')
+    end
+
+    it 'auto-loads .legionio.env when accessed implicitly' do
+      dir = Dir.mktmpdir('legion_settings_implicit_access_test')
+      old_dir = Dir.pwd
+      old_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+      ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
+      File.write(File.join(dir, '.legionio.env'), "project_env_key=implicit_value\n")
+
+      Dir.chdir(dir) do
+        expect(described_class[:project_env_key]).to eq('implicit_value')
+      end
+    ensure
+      ENV['LEGION_DNS_BOOTSTRAP'] = old_bootstrap
+      Dir.chdir(old_dir)
+      FileUtils.rm_rf(dir)
+    end
+  end
+
+  describe '.dig' do
+    it 'applies overlay precedence consistently with []' do
+      described_class.merge_settings('m', { a: 1, b: { c: 2 } })
+
+      described_class.with_overlay(m: { b: { c: 9 } }) do
+        expect(described_class.dig(:m, :b, :c)).to eq(9)
+      end
+    end
+
+    it 'auto-loads .legionio.env when accessed implicitly' do
+      dir = Dir.mktmpdir('legion_settings_implicit_dig_test')
+      old_dir = Dir.pwd
+      old_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+      ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
+      File.write(File.join(dir, '.legionio.env'), "project_env.key=dig_value\n")
+
+      Dir.chdir(dir) do
+        expect(described_class.dig(:project_env, :key)).to eq('dig_value')
+      end
+    ensure
+      ENV['LEGION_DNS_BOOTSTRAP'] = old_bootstrap
+      Dir.chdir(old_dir)
+      FileUtils.rm_rf(dir)
     end
   end
 
@@ -107,6 +168,16 @@ RSpec.describe Legion::Settings do
       described_class.merge_settings('typed', { port: 8080 })
       described_class.loader.settings[:typed][:port] = 'not_a_number'
       expect { described_class.validate! }.to raise_error(Legion::Settings::ValidationError)
+    end
+
+    it 'rebuilds validation errors from scratch on subsequent runs' do
+      described_class.merge_settings('typed', { port: 8080 })
+      described_class.loader.settings[:typed][:port] = 'not_a_number'
+      expect { described_class.validate! }.to raise_error(Legion::Settings::ValidationError)
+
+      described_class.loader.settings[:typed][:port] = 8080
+      expect { described_class.validate! }.not_to raise_error
+      expect(described_class.errors).to be_empty
     end
   end
 

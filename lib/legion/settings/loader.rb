@@ -2,6 +2,8 @@
 
 require 'resolv'
 require 'socket'
+require 'digest'
+require 'tmpdir'
 require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
@@ -172,7 +174,7 @@ module Legion
 
       def []=(key, value)
         @settings[key] = value
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def hexdigest
@@ -221,16 +223,14 @@ module Legion
         mod_name = config.keys.first
         log_debug("Loading module settings: #{mod_name}")
         @settings = deep_merge(config, @settings)
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def load_module_default(config)
         mod_name = config.keys.first
         log_debug("Loading module defaults: #{mod_name}")
-        merged = deep_merge(@settings, config)
-        deep_diff(@settings, merged) unless @loaded_files.empty?
-        @settings = merged
-        @indifferent_access = false
+        @settings = deep_merge(config, @settings)
+        mark_dirty!
       end
 
       def load_file(file)
@@ -239,10 +239,8 @@ module Legion
           begin
             contents = read_config_file(file)
             config = contents.empty? ? {} : Legion::JSON.load(contents)
-            merged = deep_merge(@settings, config)
-            deep_diff(@settings, merged) unless @loaded_files.empty?
-            @settings = merged
-            # @indifferent_access = false
+            @settings = deep_merge(@settings, config)
+            mark_dirty!
             @loaded_files << file
             log.debug("Loaded settings file #{file}")
           rescue Legion::JSON::ParseError => e
@@ -257,7 +255,7 @@ module Legion
       def load_directory(directory)
         path = directory.gsub(/\\(?=\S)/, '/')
         if File.readable?(path) && File.executable?(path)
-          files = Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq
+          files = Dir.glob(File.join(path, '**', '*.json'))
           files.each { |file| load_file(file) }
           log_info("Settings: loaded directory #{path} (#{files.size} files)")
         else
@@ -270,7 +268,7 @@ module Legion
         if @settings[:client][:subscriptions].is_a?(Array)
           @settings[:client][:subscriptions] << "client:#{@settings[:client][:name]}"
           @settings[:client][:subscriptions].uniq!
-          @indifferent_access = false
+          mark_dirty!
         else
           log_warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
         end
@@ -318,7 +316,7 @@ module Legion
           hostname:   bootstrap.hostname,
           url:        bootstrap.url
         }
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def start_dns_background_refresh(bootstrap)
@@ -364,14 +362,14 @@ module Legion
         @settings[:api] ||= {}
         @settings[:api][:port] = ENV['LEGION_API_PORT'].to_i
         log_warn("using api port environment variable, api: #{@settings[:api]}")
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def load_privacy_env
         return unless ENV['LEGION_ENTERPRISE_PRIVACY'] == 'true'
 
         @settings[:enterprise_data_privacy] = true
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def read_config_file(file)
@@ -401,19 +399,6 @@ module Legion
         merged
       end
 
-      def deep_diff(hash_one, hash_two)
-        keys = hash_one.keys.concat(hash_two.keys).uniq
-        keys.each_with_object({}) do |key, diff|
-          next if hash_one[key] == hash_two[key]
-
-          diff[key] = if hash_one[key].is_a?(Hash) && hash_two[key].is_a?(Hash)
-                        deep_diff(hash_one[key], hash_two[key])
-                      else
-                        [hash_one[key], hash_two[key]]
-                      end
-        end
-      end
-
       def create_loaded_tempfile!
         dir = ENV['LEGION_LOADED_TEMPFILE_DIR'] || Dir.tmpdir
         file_name = "legion_#{legion_service_name}_loaded_files"
@@ -421,6 +406,15 @@ module Legion
         File.write(path, @loaded_files.join(':'))
         path
       end
+
+      public
+
+      def mark_dirty!
+        @indifferent_access = false
+        @hexdigest = nil
+      end
+
+      private
 
       def legion_service_name
         File.basename($PROGRAM_NAME).split('-').last

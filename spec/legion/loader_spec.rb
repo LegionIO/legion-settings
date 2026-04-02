@@ -388,6 +388,13 @@ RSpec.describe Legion::Settings::Loader do
       expect(loader[:new_module]).to be_a(Hash)
       expect(loader[:new_module][:key]).to eq('value')
     end
+
+    it 'does not overwrite existing scalar values' do
+      loader[:custom_module] = { mode: 'runtime' }
+      loader.load_module_default({ custom_module: { mode: 'default', enabled: true } })
+      expect(loader[:custom_module][:mode]).to eq('runtime')
+      expect(loader[:custom_module][:enabled]).to eq(true)
+    end
   end
 
   describe '#set_env!' do
@@ -556,6 +563,13 @@ RSpec.describe Legion::Settings::Loader do
       loader.to_hash
       loader.load_module_default({ extra: { key: 'default_value' } })
       expect(loader['extra']).to eq({ key: 'default_value' })
+    end
+
+    it 'load_file resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_file(config_file)
+      expect(loader['api']).to eq(loader[:api])
+      expect(loader['custom_key']).to eq('test_value')
     end
   end
 end

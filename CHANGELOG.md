@@ -4,11 +4,15 @@
 
 ### Changed
 - Added a runtime dependency on `legion-logging >= 1.4.0` and moved `Settings`, `Loader`, `Resolver`, `ProjectEnv`, and `AgentLoader` onto component-aware logging helpers
+- Added `Legion::Logging::Helper` integration to top-level `Settings` access and DNS bootstrap logging so component tags and per-component levels apply consistently
 - `extensions.default_extension_settings` now defaults to `{}` instead of injecting a synthetic logger config
 - `Legion::Settings::Helper#settings` now returns `{}` when an extension has no explicit settings
 - `region.default_affinity` now defaults to `any`
+- `[]`, `dig`, and no-arg `load` now share the same project-env-aware load path, and the README now documents the actual `load`/`Loader.default_directories` split
 
 ### Fixed
+- `validate!` now clears stale validation errors before rebuilding state, and nested schema branches now fail when a hash-shaped setting is replaced with a scalar
+- Loader mutation paths now invalidate indifferent-access and digest caches consistently, `load_module_default` no longer overwrites existing scalar settings, and resolver traversal now handles arrays of hashes
 - `Resolver` now treats clustered Vault connectivity from `Legion::Crypt` as available for `vault://` resolution instead of relying only on the top-level `crypt.vault.connected` flag
 - Logger-backed settings code paths now use consistent `log.debug/info/warn/error` behavior instead of mixed direct `Legion::Logging.*` calls
 
