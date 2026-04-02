@@ -189,6 +189,21 @@ RSpec.describe Legion::Settings do
       described_class.load_project_env(start_dir: tmpdir)
       expect(described_class[:cache][:driver]).to eq('redis')
     end
+
+    it 'invalidates the loader digest when project env changes settings' do
+      old_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+      ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
+      described_class.load
+      before_digest = described_class.get.hexdigest
+
+      env_file = File.join(tmpdir, '.legionio.env')
+      File.write(env_file, "cache.driver=redis\n")
+      described_class.load_project_env(start_dir: tmpdir)
+
+      expect(described_class.get.hexdigest).not_to eq(before_digest)
+    ensure
+      ENV['LEGION_DNS_BOOTSTRAP'] = old_bootstrap
+    end
   end
 
   describe 'resolution order: overlay > project env > global' do

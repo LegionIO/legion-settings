@@ -8,7 +8,7 @@ module Legion
         if Legion::Settings[:extensions]&.key?(ext_key)
           Legion::Settings[:extensions][ext_key]
         else
-          { logger: { level: 'info', extended: false, internal: false } }
+          {}
         end
       end
 

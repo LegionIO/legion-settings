@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging'
+
 module Legion
   module Settings
     module Resolver
+      extend Legion::Logging::Helper
+
       VAULT_PATTERN  = %r{\Avault://(.+?)#(.+)\z}
       ENV_PATTERN    = %r{\Aenv://(.+)\z}
       LEASE_PATTERN  = %r{\Alease://(.+?)#(.+)\z}
@@ -81,60 +85,79 @@ module Legion
       end
 
       def count_vault_refs(hash)
-        return 0 unless hash.is_a?(Hash)
-
-        hash.sum do |_key, value|
-          case value
-          when String then value.match?(VAULT_PATTERN) ? 1 : 0
-          when Array  then value.count { |v| v.is_a?(String) && v.match?(VAULT_PATTERN) }
-          when Hash   then count_vault_refs(value)
-          else 0
-          end
+        case hash
+        when String then hash.match?(VAULT_PATTERN) ? 1 : 0
+        when Array  then hash.sum { |value| count_vault_refs(value) }
+        when Hash   then hash.sum { |_key, value| count_vault_refs(value) }
+        else 0
         end
       end
 
       def vault_connected?
         return false unless defined?(Legion::Crypt)
         return false unless defined?(Legion::Settings)
+        return Legion::Crypt.vault_connected? if Legion::Crypt.respond_to?(:vault_connected?)
 
-        Legion::Settings[:crypt][:vault][:connected] == true
+        Legion::Settings[:crypt][:vault][:connected] == true ||
+          (Legion::Crypt.respond_to?(:connected_clusters) && Legion::Crypt.connected_clusters.any?)
       rescue StandardError => e
         log_debug("Legion::Settings::Resolver#vault_connected? failed: #{e.message}")
         false
       end
 
-      def walk(hash, path:, &block)
-        hash.each do |key, value|
-          current_path = path.empty? ? key.to_s : "#{path}.#{key}"
-
-          case value
-          when Hash
-            walk(value, path: current_path, &block)
-          when String
-            next unless value.match?(URI_PATTERN)
-
-            resolved = resolve_single(value)
-            if resolved.nil?
-              log_warn("Settings resolver: could not resolve #{current_path} (#{value})")
-              block&.call(:unresolved)
-            else
-              hash[key] = resolved
-              register_lease_ref(value, current_path) if value.match?(LEASE_PATTERN)
-              block&.call(:resolved)
-            end
-          when Array
-            next unless resolvable_chain?(value)
-
-            resolved = resolve_chain(value)
-            if resolved.nil?
-              log_warn("Settings resolver: fallback chain exhausted for #{current_path}")
-              block&.call(:unresolved)
-            else
-              hash[key] = resolved
-              register_lease_refs_from_chain(value, current_path)
-              block&.call(:resolved)
-            end
+      def walk(hash, path:, &)
+        case hash
+        when Hash
+          hash.each do |key, value|
+            current_path = path.empty? ? key.to_s : "#{path}.#{key}"
+            walk_value(hash, key, value, current_path, &)
           end
+        when Array
+          hash.each_with_index do |value, index|
+            current_path = "#{path}[#{index}]"
+            walk_value(hash, index, value, current_path, &)
+          end
+        end
+      end
+
+      def walk_value(container, key, value, current_path, &)
+        case value
+        when Hash
+          walk(value, path: current_path, &)
+        when String
+          handle_string_value(container, key, value, current_path) { |status| yield(status) if block_given? }
+        when Array
+          handle_array_value(container, key, value, current_path) { |status| yield(status) if block_given? }
+        end
+      end
+
+      def handle_string_value(container, key, value, current_path)
+        return unless value.match?(URI_PATTERN)
+
+        resolved = resolve_single(value)
+        if resolved.nil?
+          log_warn("Settings resolver: could not resolve #{current_path} (#{value})")
+          yield(:unresolved) if block_given?
+        else
+          container[key] = resolved
+          register_lease_ref(value, current_path) if value.match?(LEASE_PATTERN)
+          yield(:resolved) if block_given?
+        end
+      end
+
+      def handle_array_value(container, key, value, current_path, &)
+        if resolvable_chain?(value) && value.all? { |entry| !entry.is_a?(Hash) && !entry.is_a?(Array) }
+          resolved = resolve_chain(value)
+          if resolved.nil?
+            log_warn("Settings resolver: fallback chain exhausted for #{current_path}")
+            yield(:unresolved) if block_given?
+          else
+            container[key] = resolved
+            register_lease_refs_from_chain(value, current_path)
+            yield(:resolved) if block_given?
+          end
+        else
+          walk(value, path: current_path, &)
         end
       end
 
@@ -207,40 +230,29 @@ module Legion
       end
 
       def count_lease_refs(hash)
-        return 0 unless hash.is_a?(Hash)
-
-        hash.sum do |_key, value|
-          case value
-          when String then value.match?(LEASE_PATTERN) ? 1 : 0
-          when Array  then value.count { |v| v.is_a?(String) && v.match?(LEASE_PATTERN) }
-          when Hash   then count_lease_refs(value)
-          else 0
-          end
+        case hash
+        when String then hash.match?(LEASE_PATTERN) ? 1 : 0
+        when Array  then hash.sum { |value| count_lease_refs(value) }
+        when Hash   then hash.sum { |_key, value| count_lease_refs(value) }
+        else 0
         end
+      end
+
+      def resolve_logger_settings
+        raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
       end
 
       def log_info(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.info(message)
-        else
-          $stdout.puts(message)
-        end
+        log.info(message)
       end
 
       def log_warn(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.warn(message)
-        else
-          warn(message)
-        end
+        log.warn(message)
       end
 
       def log_debug(message)
-        if defined?(Legion::Logging)
-          Legion::Logging.debug(message)
-        else
-          $stdout.puts(message)
-        end
+        log.debug(message)
       end
     end
   end

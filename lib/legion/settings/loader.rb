@@ -2,6 +2,9 @@
 
 require 'resolv'
 require 'socket'
+require 'digest'
+require 'tmpdir'
+require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
 
@@ -9,6 +12,7 @@ module Legion
   module Settings
     class Loader
       include Legion::Settings::OS
+      include Legion::Logging::Helper
 
       class Error < RuntimeError; end
       attr_reader :warnings, :errors, :loaded_files, :settings
@@ -36,6 +40,7 @@ module Legion
         @settings = default_settings
         @indifferent_access = false
         @loaded_files = []
+        log.debug('Initialized Legion::Settings::Loader with default settings')
       end
 
       def dns_defaults
@@ -138,16 +143,14 @@ module Legion
           reload:                     false,
           reloading:                  false,
           auto_install_missing_lex:   true,
-          default_extension_settings: {
-            logger: { level: 'info', trace: false, extended: false }
-          },
+          default_extension_settings: {},
           logging:                    logging_defaults,
           absorbers:                  absorbers_defaults,
           transport:                  { connected: false },
           data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
           region:                     { current: nil, primary: nil, failover: nil, peers: [],
-                                        default_affinity: 'prefer_local', data_residency: {} },
+                                        default_affinity: 'any', data_residency: {} },
           process:                    { role: 'full' },
           dns:                        dns_defaults
         }
@@ -171,7 +174,7 @@ module Legion
 
       def []=(key, value)
         @settings[key] = value
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def hexdigest
@@ -220,16 +223,14 @@ module Legion
         mod_name = config.keys.first
         log_debug("Loading module settings: #{mod_name}")
         @settings = deep_merge(config, @settings)
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def load_module_default(config)
         mod_name = config.keys.first
         log_debug("Loading module defaults: #{mod_name}")
-        merged = deep_merge(@settings, config)
-        deep_diff(@settings, merged) unless @loaded_files.empty?
-        @settings = merged
-        @indifferent_access = false
+        @settings = deep_merge(config, @settings)
+        mark_dirty!
       end
 
       def load_file(file)
@@ -238,11 +239,10 @@ module Legion
           begin
             contents = read_config_file(file)
             config = contents.empty? ? {} : Legion::JSON.load(contents)
-            merged = deep_merge(@settings, config)
-            deep_diff(@settings, merged) unless @loaded_files.empty?
-            @settings = merged
-            # @indifferent_access = false
+            @settings = deep_merge(@settings, config)
+            mark_dirty!
             @loaded_files << file
+            log.debug("Loaded settings file #{file}")
           rescue Legion::JSON::ParseError => e
             log_error("config file must be valid json: #{file}")
             log_error("  parse error: #{e.message}")
@@ -255,7 +255,7 @@ module Legion
       def load_directory(directory)
         path = directory.gsub(/\\(?=\S)/, '/')
         if File.readable?(path) && File.executable?(path)
-          files = Dir.glob(File.join(path, '**{,/*/**}/*.json')).uniq
+          files = Dir.glob(File.join(path, '**', '*.json'))
           files.each { |file| load_file(file) }
           log_info("Settings: loaded directory #{path} (#{files.size} files)")
         else
@@ -268,7 +268,7 @@ module Legion
         if @settings[:client][:subscriptions].is_a?(Array)
           @settings[:client][:subscriptions] << "client:#{@settings[:client][:name]}"
           @settings[:client][:subscriptions].uniq!
-          @indifferent_access = false
+          mark_dirty!
         else
           log_warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
         end
@@ -289,6 +289,11 @@ module Legion
       end
 
       private
+
+      def resolve_logger_settings
+        raw_logging = instance_variable_defined?(:@settings) ? @settings&.[](:logging) : nil
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+      end
 
       def load_dns_from_cache(bootstrap)
         config = bootstrap.read_cache
@@ -311,7 +316,7 @@ module Legion
           hostname:   bootstrap.hostname,
           url:        bootstrap.url
         }
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def start_dns_background_refresh(bootstrap)
@@ -357,14 +362,14 @@ module Legion
         @settings[:api] ||= {}
         @settings[:api][:port] = ENV['LEGION_API_PORT'].to_i
         log_warn("using api port environment variable, api: #{@settings[:api]}")
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def load_privacy_env
         return unless ENV['LEGION_ENTERPRISE_PRIVACY'] == 'true'
 
         @settings[:enterprise_data_privacy] = true
-        @indifferent_access = false
+        mark_dirty!
       end
 
       def read_config_file(file)
@@ -394,19 +399,6 @@ module Legion
         merged
       end
 
-      def deep_diff(hash_one, hash_two)
-        keys = hash_one.keys.concat(hash_two.keys).uniq
-        keys.each_with_object({}) do |key, diff|
-          next if hash_one[key] == hash_two[key]
-
-          diff[key] = if hash_one[key].is_a?(Hash) && hash_two[key].is_a?(Hash)
-                        deep_diff(hash_one[key], hash_two[key])
-                      else
-                        [hash_one[key], hash_two[key]]
-                      end
-        end
-      end
-
       def create_loaded_tempfile!
         dir = ENV['LEGION_LOADED_TEMPFILE_DIR'] || Dir.tmpdir
         file_name = "legion_#{legion_service_name}_loaded_files"
@@ -415,6 +407,15 @@ module Legion
         path
       end
 
+      public
+
+      def mark_dirty!
+        @indifferent_access = false
+        @hexdigest = nil
+      end
+
+      private
+
       def legion_service_name
         File.basename($PROGRAM_NAME).split('-').last
       end
@@ -422,7 +423,7 @@ module Legion
       def system_hostname
         Socket.gethostname
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings::Loader#system_hostname failed: #{e.message}") if defined?(Legion::Logging)
+        log_debug("Legion::Settings::Loader#system_hostname failed: #{e.message}")
         'unknown'
       end
 
@@ -431,7 +432,7 @@ module Legion
         preferred = addresses.find { |a| rfc1918?(a.ip_address) }
         (preferred || addresses.first)&.ip_address || 'unknown'
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings::Loader#system_address failed: #{e.message}") if defined?(Legion::Logging)
+        log_debug("Legion::Settings::Loader#system_address failed: #{e.message}")
         'unknown'
       end
 
@@ -442,19 +443,19 @@ module Legion
       end
 
       def log_info(message)
-        defined?(Legion::Logging) ? Legion::Logging.info(message) : $stdout.puts(message)
+        log.info(message)
       end
 
       def log_debug(message)
-        Legion::Logging.debug(message) if defined?(Legion::Logging)
+        log.debug(message)
       end
 
       def log_warn(message)
-        defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+        log.warn(message)
       end
 
       def log_error(message)
-        defined?(Legion::Logging) ? Legion::Logging.error(message) : warn(message)
+        log.error(message)
       end
 
       def warning(message, data = {})

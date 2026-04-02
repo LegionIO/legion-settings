@@ -5,10 +5,13 @@ require 'json'
 require 'net/http'
 require 'resolv'
 require 'uri'
+require 'legion/logging'
 
 module Legion
   module Settings
     class DnsBootstrap
+      include Legion::Logging::Helper
+
       CACHE_FILENAME = '_dns_bootstrap.json'
       HOSTNAME_PREFIX = 'legion-bootstrap'
       URL_PATH = '/legion/bootstrap.json'
@@ -28,7 +31,7 @@ module Legion
         Resolv.getaddress(@hostname)
         true
       rescue Resolv::ResolvError, Resolv::ResolvTimeout => e
-        log_debug("Legion::Settings::DnsBootstrap#resolve? could not resolve #{@hostname}: #{e.message}")
+        log.debug("Legion::Settings::DnsBootstrap#resolve? could not resolve #{@hostname}: #{e.message}")
         false
       end
 
@@ -45,7 +48,7 @@ module Legion
 
         ::JSON.parse(response.body, symbolize_names: true)
       rescue StandardError => e
-        log_warn("DNS bootstrap fetch failed for #{@url}: #{e.message}")
+        log.warn("DNS bootstrap fetch failed for #{@url}: #{e.message}")
         nil
       end
 
@@ -67,11 +70,11 @@ module Legion
         return nil unless File.exist?(@cache_path)
 
         raw = ::JSON.parse(File.read(@cache_path), symbolize_names: true)
-        log_debug("DNS bootstrap cache hit: #{@cache_path}")
+        log.debug("DNS bootstrap cache hit: #{@cache_path}")
         raw.delete(:_dns_bootstrap_meta)
         raw
       rescue ::JSON::ParserError
-        log_warn("DNS bootstrap cache corrupt, deleting: #{@cache_path}")
+        log.warn("DNS bootstrap cache corrupt, deleting: #{@cache_path}")
         FileUtils.rm_f(@cache_path)
         nil
       end
@@ -82,12 +85,9 @@ module Legion
 
       private
 
-      def log_debug(message)
-        Legion::Logging.debug(message) if defined?(Legion::Logging)
-      end
-
-      def log_warn(message)
-        defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+      def resolve_logger_settings
+        raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
       end
     end
   end

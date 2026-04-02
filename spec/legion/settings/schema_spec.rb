@@ -127,6 +127,14 @@ RSpec.describe Legion::Settings::Schema do
       errors = schema.validate_module(:transport, { connection: { host: 42, port: 'bad' } })
       expect(errors.length).to eq(2)
     end
+
+    it 'fails when a nested hash-shaped branch is replaced with a scalar' do
+      schema.register(:transport, { connection: { host: '127.0.0.1', port: 5672 } })
+      errors = schema.validate_module(:transport, { connection: 'oops' })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:path]).to eq('connection')
+      expect(errors.first[:message]).to include('expected Hash')
+    end
   end
 
   describe '#detect_unknown_keys' do

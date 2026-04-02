@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'legion/logging'
+
 module Legion
   module Settings
     # Per-project `.legionio.env` config file loader.
@@ -19,6 +21,8 @@ module Legion
     # Resolution order (lowest → highest priority):
     #   global settings < .legionio.env < request overlay (#9)
     module ProjectEnv
+      extend Legion::Logging::Helper
+
       ENV_FILENAME = '.legionio.env'
 
       class << self
@@ -87,6 +91,11 @@ module Legion
 
         private
 
+        def resolve_logger_settings
+          raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
+          raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+        end
+
         def set_nested(hash, keys, value)
           *parents, leaf = keys
           target = parents.reduce(hash) do |h, k|
@@ -108,11 +117,11 @@ module Legion
         end
 
         def log_debug(message)
-          defined?(Legion::Logging) ? Legion::Logging.debug(message) : nil
+          log.debug(message)
         end
 
         def log_warn(message)
-          defined?(Legion::Logging) ? Legion::Logging.warn(message) : warn(message)
+          log.warn(message)
         end
       end
     end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/json'
+require 'legion/logging'
 require 'legion/settings/version'
 require 'legion/json/parse_error'
 require 'legion/settings/loader'
@@ -16,6 +17,8 @@ module Legion
 
     class << self
       attr_accessor :loader
+
+      include Legion::Logging::Helper
 
       def load(options = {})
         has_config = options[:config_file] || options[:config_dir] || options[:config_dirs]&.any?
@@ -51,8 +54,8 @@ module Legion
       end
 
       def [](key)
-        logger.info('Legion::Settings was not loading, auto loading now!') if @loader.nil?
-        ensure_loader
+        logger.info('Legion::Settings was not loaded, auto-loading now') if @loader.nil?
+        load if @loader.nil?
         overlay_val = Overlay.overlay_for(key)
         base_val = @loader[key]
         if overlay_val.is_a?(Hash) && base_val.is_a?(Hash)
@@ -63,15 +66,23 @@ module Legion
           base_val
         end
       rescue NoMethodError, TypeError => e
-        Legion::Logging.debug("Legion::Settings#[] key=#{key} failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#[] key=#{key} failed: #{e.message}")
         nil
       end
 
       def dig(*keys)
-        ensure_loader
-        @loader.dig(*keys)
+        return nil if keys.empty?
+
+        logger.info('Legion::Settings was not loaded, auto-loading now') if @loader.nil?
+        load if @loader.nil?
+
+        root = self[keys.first]
+        return root if keys.length == 1
+        return nil unless root.respond_to?(:dig)
+
+        root.dig(*keys[1..])
       rescue NoMethodError, TypeError => e
-        Legion::Logging.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#dig keys=#{keys.inspect} failed: #{e.message}")
         nil
       end
 
@@ -116,7 +127,9 @@ module Legion
       # @return [String, nil] path to the loaded file, or nil if none found
       def load_project_env(start_dir: nil)
         ensure_loader
-        ProjectEnv.load_into(@loader.settings, start_dir: start_dir)
+        path = ProjectEnv.load_into(@loader.settings, start_dir: start_dir)
+        @loader.mark_dirty! if path
+        path
       end
 
       def dev_mode?
@@ -124,7 +137,7 @@ module Legion
 
         Legion::Settings[:dev] ? true : false
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings#dev_mode? failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#dev_mode? failed: #{e.message}")
         false
       end
 
@@ -133,7 +146,7 @@ module Legion
 
         Legion::Settings[:enterprise_data_privacy] ? true : false
       rescue StandardError => e
-        Legion::Logging.debug("Legion::Settings#enterprise_privacy? failed: #{e.message}") if defined?(Legion::Logging)
+        logger.debug("Legion::Settings#enterprise_privacy? failed: #{e.message}")
         false
       end
 
@@ -180,19 +193,15 @@ module Legion
       end
 
       def logger
-        @logger = if ::Legion.const_defined?('Logging')
-                    ::Legion::Logging
-                  else
-                    require 'logger'
-                    l = ::Logger.new($stdout)
-                    l.formatter = proc do |severity, datetime, _progname, msg|
-                      "[#{datetime.strftime('%Y-%m-%d %H:%M:%S %z')}] #{severity} #{msg}\n"
-                    end
-                    l
-                  end
+        log
       end
 
       private
+
+      def resolve_logger_settings
+        raw_logging = @loader&.settings&.dig(:logging)
+        raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
+      end
 
       def deep_merge_for_overlay(base, overlay)
         result = base.dup
@@ -212,6 +221,7 @@ module Legion
 
         @loader = Legion::Settings::Loader.new
         @loader.load_env
+        logger.debug('Initialized Legion::Settings loader without config files')
         @loader
       end
 
@@ -224,11 +234,7 @@ module Legion
         label = count == 1 ? 'error' : 'errors'
         message = "Legion::Settings dev mode: #{count} configuration #{label} detected (not raising):\n"
         message += errs.map { |e| "  [#{e[:module]}] #{e[:path]}: #{e[:message]}" }.join("\n")
-        if ::Legion.const_defined?('Logging')
-          ::Legion::Logging.warn(message)
-        else
-          warn(message)
-        end
+        logger.warn(message)
       end
 
       def validate_module_on_merge(mod_name)
@@ -240,6 +246,7 @@ module Legion
       end
 
       def revalidate_all_modules
+        @loader.errors.clear
         schema.registered_modules.each do |mod_name|
           values = @loader[mod_name]
           next unless values.is_a?(Hash)

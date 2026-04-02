@@ -270,8 +270,10 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'logs the filename when JSON is invalid' do
       invalid_file = File.join(assets_dir, 'invalid.json')
-      expect(Legion::Logging).to receive(:error).with(a_string_including(invalid_file))
-      expect(Legion::Logging).to receive(:error).with(a_string_matching(/parse error/))
+      logger = instance_double('Logger', error: nil, debug: nil)
+      allow(loader).to receive(:log).and_return(logger)
+      expect(logger).to receive(:error).with(a_string_including(invalid_file))
+      expect(logger).to receive(:error).with(a_string_matching(/parse error/))
       loader.load_file(invalid_file)
     end
 
@@ -385,6 +387,13 @@ RSpec.describe Legion::Settings::Loader do
       loader.load_module_default({ new_module: { key: 'value' } })
       expect(loader[:new_module]).to be_a(Hash)
       expect(loader[:new_module][:key]).to eq('value')
+    end
+
+    it 'does not overwrite existing scalar values' do
+      loader[:custom_module] = { mode: 'runtime' }
+      loader.load_module_default({ custom_module: { mode: 'default', enabled: true } })
+      expect(loader[:custom_module][:mode]).to eq('runtime')
+      expect(loader[:custom_module][:enabled]).to eq(true)
     end
   end
 
@@ -554,6 +563,13 @@ RSpec.describe Legion::Settings::Loader do
       loader.to_hash
       loader.load_module_default({ extra: { key: 'default_value' } })
       expect(loader['extra']).to eq({ key: 'default_value' })
+    end
+
+    it 'load_file resets @indifferent_access so string keys work after to_hash' do
+      loader.to_hash
+      loader.load_file(config_file)
+      expect(loader['api']).to eq(loader[:api])
+      expect(loader['custom_key']).to eq('test_value')
     end
   end
 end

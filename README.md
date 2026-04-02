@@ -2,7 +2,7 @@
 
 Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
-**Version**: 1.3.22
+**Version**: 1.3.26
 
 ## Installation
 
@@ -21,20 +21,28 @@ gem 'legion-settings'
 ```ruby
 require 'legion/settings'
 
-Legion::Settings.load(config_dir: './')  # loads all .json files in the directory
+Legion::Settings.load                          # loads defaults, env, DNS bootstrap, and nearest .legionio.env
+Legion::Settings.load(config_dir: './settings') # also loads all .json files in the directory
 
 Legion::Settings[:client][:hostname]
-Legion::Settings[:transport][:connection][:host]
+Legion::Settings.dig(:transport, :connection, :host)
 ```
 
-### Config Paths (checked in order)
+`[]` and `dig` will auto-load settings on first access, and implicit access follows the same overlay/project-env/base precedence as explicit `load`.
 
-1. `/etc/legionio/`
-2. `~/.legionio/settings/`
-3. `~/legionio/`
-4. `./settings/`
+### Config Loading
 
-Each Legion module registers its own defaults via `merge_settings` during startup.
+`Legion::Settings.load` only consumes the paths you pass via `config_file`, `config_dir`, or `config_dirs`.
+
+If a caller wants the canonical Legion search directories, use `Legion::Settings::Loader.default_directories`:
+
+1. `~/.legionio/settings`
+2. `/etc/legionio/settings` on Unix-like systems
+3. `%APPDATA%\\legionio\\settings` on Windows when `APPDATA` is present
+
+`LegionIO` uses those directories during daemon boot. Library consumers can choose to pass any directory set they want.
+
+Each Legion module registers its own defaults via `merge_settings` during startup, and the nearest `.legionio.env` file is merged on top of base settings. Request overlays applied through `with_overlay` take highest precedence.
 
 ### Secret Resolution
 
@@ -76,25 +84,25 @@ Legion::Settings.validate!  # raises ValidationError if any settings are invalid
 
 # In development, warn instead of raising:
 # Set LEGION_DEV=true or Legion::Settings.set_prop(:dev, true)
-# validate! will warn to $stderr (or Legion::Logging) instead of raising
+# validate! will warn through the configured logger instead of raising
 ```
 
 ### Logging Defaults
 
-The `logging` key includes a `transport` sub-section (new in 1.3.22) that controls whether log events are forwarded over the message bus:
+The `logging` key includes a `transport` sub-section that controls whether log events are forwarded over the message bus:
 
 ```json
 {
   "logging": {
     "level": "info",
     "format": "text",
-    "log_file": null,
+    "log_file": "./legionio/logs/legion.log",
     "log_stdout": true,
     "trace": true,
     "async": true,
     "include_pid": false,
     "transport": {
-      "enabled": false,
+      "enabled": true,
       "forward_logs": true,
       "forward_exceptions": true
     }
@@ -102,7 +110,7 @@ The `logging` key includes a `transport` sub-section (new in 1.3.22) that contro
 }
 ```
 
-When `transport.enabled` is `true`, log events and unhandled exceptions are published to the AMQP bus so a central log consumer can aggregate them. Disabled by default to avoid a dependency on `legion-transport` at boot.
+When `transport.enabled` is `true`, log events and unhandled exceptions are published to the AMQP bus so a central log consumer can aggregate them.
 
 ## Requirements
 

@@ -113,7 +113,14 @@ module Legion
           if constraint.is_a?(Hash) && constraint.key?(:type)
             validate_leaf(constraint, value, mod_name, current_path, errors)
           elsif constraint.is_a?(Hash)
-            validate_node(constraint, value, mod_name, current_path, errors) if value.is_a?(Hash)
+            next if value.nil?
+
+            if value.is_a?(Hash)
+              validate_node(constraint, value, mod_name, current_path, errors)
+            else
+              errors << { module: mod_name, path: current_path,
+                          message: "expected Hash, got #{value.class} (#{value.inspect})" }
+            end
           end
         end
       end
