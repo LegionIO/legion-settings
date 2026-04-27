@@ -184,11 +184,113 @@ module Legion
         @loader.errors
       end
 
+      # ------------------------------------------------------------------
+      # Hot-reload: re-read all previously loaded config files, re-resolve
+      # vault:// / env:// / lease:// references, and notify registered
+      # callbacks of changed keys.
+      #
+      # Safe to call from a SIGHUP handler or API endpoint.
+      #
+      # @return [Hash] changed keys  { key => { old: ..., new: ... } }
+      # ------------------------------------------------------------------
+      def reload!
+        @reload_mutex ||= Mutex.new
+        @reload_mutex.synchronize do
+          return {} unless @loader
+
+          old_hash = @loader.to_hash.dup
+          files = @loader.loaded_files.dup
+
+          # Re-create loader and replay the same files
+          new_loader = Legion::Settings::Loader.new
+          new_loader.load_env
+          new_loader.load_dns_bootstrap
+          files.each { |f| new_loader.load_file(f) if File.exist?(f) }
+
+          # Replay module merges so extension defaults are preserved
+          if @loader.respond_to?(:merged_modules)
+            @loader.merged_modules.each do |mod_key, mod_defaults|
+              new_loader.load_module_settings(mod_key => mod_defaults)
+            end
+          end
+
+          # Replay project env overrides (.legionio.env)
+          load_project_env
+
+          # Re-resolve secrets (vault://, env://, lease://)
+          begin
+            require 'legion/settings/resolver'
+            Resolver.resolve_secrets!(new_loader.to_hash)
+          rescue StandardError => e
+            logger.warn("Settings reload: secret resolution failed: #{e.message}")
+          end
+
+          new_hash = new_loader.to_hash
+          changes = diff_settings(old_hash, new_hash)
+
+          if changes.empty?
+            logger.info('Settings reload: no changes detected')
+          else
+            @loader = new_loader
+            logger.info("Settings reload: #{changes.size} key(s) changed — #{changes.keys.join(', ')}")
+            fire_reload_callbacks(changes)
+          end
+
+          changes
+        end
+      end
+
+      # Register a SIGHUP handler that triggers reload!
+      # Optionally accepts a block that will be called with the changes hash
+      # after each successful reload.
+      #
+      # @yield [changes] optional callback receiving the changes hash
+      def watch!(&block)
+        on_reload(&block) if block
+
+        unless Signal.list.key?('HUP')
+          logger.info('Settings: SIGHUP not available on this platform — watch! is a no-op')
+          return
+        end
+
+        # Single coalescing worker thread: SIGHUP sets the flag, worker drains it.
+        @reload_flag ||= Queue.new
+        @reload_worker ||= Thread.new do
+          loop do
+            @reload_flag.pop # blocks until signalled
+            # Drain any queued signals so rapid SIGHUPs collapse into one reload
+            @reload_flag.pop until @reload_flag.empty?
+            logger.info('Settings: SIGHUP received — reloading configuration')
+            reload!
+          rescue StandardError => e
+            logger.error("Settings: reload after SIGHUP failed: #{e.message}")
+          end
+        end
+
+        trap('HUP') { @reload_flag << :reload }
+        logger.info('Settings: SIGHUP handler registered for config hot-reload')
+      end
+
+      # Register a callback to be invoked after reload! detects changes.
+      # Multiple callbacks can be registered; they are called in order.
+      #
+      # @yield [changes] the changes hash { key => { old: ..., new: ... } }
+      def on_reload(&block)
+        raise ArgumentError, 'on_reload requires a block' unless block
+
+        @reload_callbacks ||= []
+        @reload_callbacks << block
+      end
+
       def reset!
         @loader = nil
         @loaded = nil
         @schema = nil
         @cross_validations = nil
+        @reload_callbacks = nil
+        @reload_mutex = nil
+        @reload_signal_pending = nil
+        @reload_worker = nil
         Overlay.clear_overlay!
       end
 
@@ -272,6 +374,32 @@ module Legion
         warnings = schema.detect_unknown_keys(@loader.to_hash, known_defaults: known_defaults)
         warnings.each do |w|
           @loader.errors << w
+        end
+      end
+
+      def diff_settings(old_hash, new_hash, prefix = '')
+        changes = {}
+        all_keys = (old_hash.keys + new_hash.keys).uniq
+        all_keys.each do |key|
+          full_key = prefix.empty? ? key.to_s : "#{prefix}.#{key}"
+          old_val = old_hash[key]
+          new_val = new_hash[key]
+          if old_val.is_a?(Hash) && new_val.is_a?(Hash)
+            changes.merge!(diff_settings(old_val, new_val, full_key))
+          elsif old_val != new_val
+            changes[full_key] = { old: old_val, new: new_val }
+          end
+        end
+        changes
+      end
+
+      def fire_reload_callbacks(changes)
+        return unless @reload_callbacks&.any?
+
+        @reload_callbacks.each do |cb|
+          cb.call(changes)
+        rescue StandardError => e
+          logger.warn("Settings reload callback failed: #{e.message}")
         end
       end
     end
