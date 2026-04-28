@@ -15,7 +15,7 @@ module Legion
       include Legion::Logging::Helper
 
       class Error < RuntimeError; end
-      attr_reader :warnings, :errors, :loaded_files, :settings
+      attr_reader :warnings, :errors, :loaded_files, :settings, :merged_modules
 
       def self.default_directories
         env_dirs = ENV.fetch('LEGION_SETTINGS_DIRS', nil)
@@ -40,6 +40,7 @@ module Legion
         @settings = default_settings
         @indifferent_access = false
         @loaded_files = []
+        @merged_modules = {}
         log.debug('Initialized Legion::Settings::Loader with default settings')
       end
 
@@ -222,6 +223,7 @@ module Legion
       def load_module_settings(config)
         mod_name = config.keys.first
         log_debug("Loading module settings: #{mod_name}")
+        @merged_modules = deep_merge(@merged_modules, config)
         @settings = deep_merge(config, @settings)
         mark_dirty!
       end

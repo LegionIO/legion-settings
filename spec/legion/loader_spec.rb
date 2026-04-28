@@ -380,6 +380,11 @@ RSpec.describe Legion::Settings::Loader do
       loader.load_module_settings({ custom_module: { enabled: true } })
       expect(loader[:cache]).to be_a(Hash)
     end
+
+    it 'tracks merged module defaults for reload replay' do
+      loader.load_module_settings({ custom_module: { enabled: true } })
+      expect(loader.merged_modules[:custom_module][:enabled]).to eq(true)
+    end
   end
 
   describe '#load_module_default' do

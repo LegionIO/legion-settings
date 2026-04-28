@@ -9,6 +9,10 @@
 - Private `diff_settings` helper for deep comparison of old vs new config hashes
 - Private `fire_reload_callbacks` for executing registered change callbacks
 
+### Fixed
+- `reload!` preserves programmatic module merges and reapplies `.legionio.env` overrides to the reloaded settings loader
+- `watch!` no-ops when SIGHUP is unavailable and coalesces repeated SIGHUP events through a single reload worker
+
 ## [1.3.26] - 2026-04-02
 
 ### Changed

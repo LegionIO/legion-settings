@@ -2,7 +2,7 @@
 
 Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
 
-**Version**: 1.3.26
+**Version**: 1.3.27
 
 ## Installation
 
@@ -43,6 +43,51 @@ If a caller wants the canonical Legion search directories, use `Legion::Settings
 `LegionIO` uses those directories during daemon boot. Library consumers can choose to pass any directory set they want.
 
 Each Legion module registers its own defaults via `merge_settings` during startup, and the nearest `.legionio.env` file is merged on top of base settings. Request overlays applied through `with_overlay` take highest precedence.
+
+### Hot Reload
+
+`Legion::Settings.reload!` re-reads the config files that were previously loaded, reapplies module defaults and the nearest `.legionio.env`, re-resolves secret references, and returns a hash describing the changed keys.
+
+```ruby
+changes = Legion::Settings.reload!
+
+changes
+# {
+#   "llm.default_model" => { old: "old-model", new: "new-model" }
+# }
+```
+
+Callbacks run only when changes are detected:
+
+```ruby
+Legion::Settings.on_reload do |changes|
+  Legion::Settings.logger.info("Settings changed: #{changes.keys.join(', ')}")
+end
+```
+
+`watch!` installs a SIGHUP handler when the platform supports it. Repeated signals are coalesced through one background reload worker, so rapid SIGHUP bursts do not create unbounded reload threads.
+
+```ruby
+Legion::Settings.watch! do |changes|
+  Legion::Settings.logger.info("Reloaded #{changes.size} setting(s)")
+end
+
+# Later, from a shell:
+# kill -HUP <daemon_pid>
+```
+
+On platforms without `HUP`, `watch!` logs and returns without raising. Direct `reload!` remains available for API endpoints, tests, or environments that use a different process-control mechanism.
+
+### Project Environment Overrides
+
+When present, the nearest `.legionio.env` file is loaded after base settings and module defaults. Dot notation maps to nested settings:
+
+```dotenv
+llm.default_model=claude-sonnet
+cache.driver=redis
+```
+
+Hot reload picks up changes to this file as part of the same `reload!` flow.
 
 ### Secret Resolution
 

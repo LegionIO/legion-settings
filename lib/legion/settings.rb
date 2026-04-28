@@ -125,10 +125,10 @@ module Legion
       #
       # @param start_dir [String, nil] directory to start searching from (defaults to Dir.pwd)
       # @return [String, nil] path to the loaded file, or nil if none found
-      def load_project_env(start_dir: nil)
-        ensure_loader
-        path = ProjectEnv.load_into(@loader.settings, start_dir: start_dir)
-        @loader.mark_dirty! if path
+      def load_project_env(start_dir: nil, loader: nil)
+        target_loader = loader || ensure_loader
+        path = ProjectEnv.load_into(target_loader.settings, start_dir: start_dir)
+        target_loader.mark_dirty! if path
         path
       end
 
@@ -215,7 +215,7 @@ module Legion
           end
 
           # Replay project env overrides (.legionio.env)
-          load_project_env
+          load_project_env(loader: new_loader)
 
           # Re-resolve secrets (vault://, env://, lease://)
           begin
@@ -283,13 +283,18 @@ module Legion
       end
 
       def reset!
+        if @reload_worker&.alive? && @reload_worker != Thread.current
+          @reload_worker.kill
+          @reload_worker.join
+        end
+
         @loader = nil
         @loaded = nil
         @schema = nil
         @cross_validations = nil
         @reload_callbacks = nil
         @reload_mutex = nil
-        @reload_signal_pending = nil
+        @reload_flag = nil
         @reload_worker = nil
         Overlay.clear_overlay!
       end

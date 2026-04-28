@@ -58,6 +58,25 @@ RSpec.describe 'Legion::Settings hot-reload' do
       expect(Legion::Settings[:llm][:default_model]).to eq('reloaded-model')
     end
 
+    it 'replays project env overrides into the reloaded loader' do
+      File.write(File.join(tmpdir, '.legionio.env'), "llm.default_model=project-model\n")
+      allow(Dir).to receive(:pwd).and_return(tmpdir)
+
+      changes = Legion::Settings.reload!
+
+      expect(changes['llm.default_model']).to eq(old: 'old-model', new: 'project-model')
+      expect(Legion::Settings[:llm][:default_model]).to eq('project-model')
+    end
+
+    it 'preserves programmatic module merges during reload' do
+      Legion::Settings.merge_settings(:custom_module, { enabled: true, mode: 'default' })
+      File.write(File.join(tmpdir, 'test.json'), JSON.generate({ llm: { default_model: 'module-reload-model' } }))
+
+      Legion::Settings.reload!
+
+      expect(Legion::Settings[:custom_module]).to include(enabled: true, mode: 'default')
+    end
+
     it 'does not update the loader when nothing changed' do
       original_loader = Legion::Settings.loader
       Legion::Settings.reload!
@@ -147,6 +166,17 @@ RSpec.describe 'Legion::Settings hot-reload' do
       skip 'HUP not available' unless Signal.list.key?('HUP')
       called = false
       expect { Legion::Settings.watch! { |_| called = true } }.not_to raise_error
+    end
+
+    it 'reuses one reload worker across repeated registrations' do
+      allow(Signal).to receive(:list).and_return('HUP' => 1)
+      allow(Signal).to receive(:trap)
+
+      Legion::Settings.watch!
+      worker = Legion::Settings.instance_variable_get(:@reload_worker)
+      Legion::Settings.watch!
+
+      expect(Legion::Settings.instance_variable_get(:@reload_worker)).to equal(worker)
     end
   end
 
