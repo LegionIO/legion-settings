@@ -15,7 +15,7 @@ module Legion
       include Legion::Logging::Helper
 
       class Error < RuntimeError; end
-      attr_reader :warnings, :errors, :loaded_files, :settings
+      attr_reader :warnings, :errors, :loaded_files, :settings, :merged_modules
 
       def self.default_directories
         env_dirs = ENV.fetch('LEGION_SETTINGS_DIRS', nil)
@@ -40,6 +40,7 @@ module Legion
         @settings = default_settings
         @indifferent_access = false
         @loaded_files = []
+        @merged_modules = {}
         log.debug('Initialized Legion::Settings::Loader with default settings')
       end
 
@@ -221,20 +222,21 @@ module Legion
 
       def load_module_settings(config)
         mod_name = config.keys.first
-        log_debug("Loading module settings: #{mod_name}")
+        log.debug("Loading module settings: #{mod_name}")
+        @merged_modules = deep_merge(@merged_modules, config)
         @settings = deep_merge(config, @settings)
         mark_dirty!
       end
 
       def load_module_default(config)
         mod_name = config.keys.first
-        log_debug("Loading module defaults: #{mod_name}")
+        log.debug("Loading module defaults: #{mod_name}")
         @settings = deep_merge(config, @settings)
         mark_dirty!
       end
 
       def load_file(file)
-        log_debug("Trying to load file #{file}")
+        log.debug("Trying to load file #{file}")
         if File.file?(file) && File.readable?(file)
           begin
             contents = read_config_file(file)
@@ -244,11 +246,11 @@ module Legion
             @loaded_files << file
             log.debug("Loaded settings file #{file}")
           rescue Legion::JSON::ParseError => e
-            log_error("config file must be valid json: #{file}")
-            log_error("  parse error: #{e.message}")
+            log.error("config file must be valid json: #{file}")
+            log.error("  parse error: #{e.message}")
           end
         else
-          log_warn("Config file does not exist or is not readable file:#{file}")
+          log.warn("Config file does not exist or is not readable file:#{file}")
         end
       end
 
@@ -257,7 +259,7 @@ module Legion
         if File.readable?(path) && File.executable?(path)
           files = Dir.glob(File.join(path, '**', '*.json'))
           files.each { |file| load_file(file) }
-          log_info("Settings: loaded directory #{path} (#{files.size} files)")
+          log.info("Settings: loaded directory #{path} (#{files.size} files)")
         else
           load_error('insufficient permissions for loading', directory: directory)
         end
@@ -270,7 +272,7 @@ module Legion
           @settings[:client][:subscriptions].uniq!
           mark_dirty!
         else
-          log_warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
+          log.warn('unable to apply legion client overrides, reason: client subscriptions is not an array')
         end
       end
 
@@ -302,7 +304,7 @@ module Legion
       end
 
       def load_dns_first_boot(bootstrap)
-        log_debug("DNS bootstrap: first boot, fetching from #{bootstrap.url}")
+        log.debug("DNS bootstrap: first boot, fetching from #{bootstrap.url}")
         config = bootstrap.fetch
         bootstrap.write_cache(config) if config
         config
@@ -324,7 +326,7 @@ module Legion
           fresh = bootstrap.fetch
           bootstrap.write_cache(fresh) if fresh
         rescue StandardError => e
-          log_warn("DNS background refresh failed: #{e.message}")
+          log.warn("DNS background refresh failed: #{e.message}")
         end
       end
 
@@ -361,7 +363,7 @@ module Legion
 
         @settings[:api] ||= {}
         @settings[:api][:port] = ENV['LEGION_API_PORT'].to_i
-        log_warn("using api port environment variable, api: #{@settings[:api]}")
+        log.warn("using api port environment variable, api: #{@settings[:api]}")
         mark_dirty!
       end
 
@@ -423,7 +425,7 @@ module Legion
       def system_hostname
         Socket.gethostname
       rescue StandardError => e
-        log_debug("Legion::Settings::Loader#system_hostname failed: #{e.message}")
+        log.debug("Legion::Settings::Loader#system_hostname failed: #{e.message}")
         'unknown'
       end
 
@@ -432,7 +434,7 @@ module Legion
         preferred = addresses.find { |a| rfc1918?(a.ip_address) }
         (preferred || addresses.first)&.ip_address || 'unknown'
       rescue StandardError => e
-        log_debug("Legion::Settings::Loader#system_address failed: #{e.message}")
+        log.debug("Legion::Settings::Loader#system_address failed: #{e.message}")
         'unknown'
       end
 
@@ -442,34 +444,18 @@ module Legion
           ip.start_with?('192.168.')
       end
 
-      def log_info(message)
-        log.info(message)
-      end
-
-      def log_debug(message)
-        log.debug(message)
-      end
-
-      def log_warn(message)
-        log.warn(message)
-      end
-
-      def log_error(message)
-        log.error(message)
-      end
-
       def warning(message, data = {})
         @warnings << {
           message: message
         }.merge(data)
-        log_warn(message)
+        log.warn(message)
       end
 
       def load_error(message, data = {})
         @errors << {
           message: message
         }.merge(data)
-        log_error(message)
+        log.error(message)
         raise(Error, message)
       end
 
@@ -480,7 +466,7 @@ module Legion
           nameservers:    config[:nameserver]&.map(&:to_s)&.uniq
         }
       rescue StandardError => e
-        log_warn("Failed to read resolv config: #{e.message}")
+        log.warn("Failed to read resolv config: #{e.message}")
         { search_domains: [], nameservers: [] }
       end
 
@@ -491,10 +477,10 @@ module Legion
 
         fqdn.include?('.') ? fqdn : nil
       rescue Timeout::Error
-        log_debug('FQDN detection skipped (DNS timeout)')
+        log.debug('FQDN detection skipped (DNS timeout)')
         nil
       rescue StandardError => e
-        log_debug("FQDN detection skipped (#{e.message.split(':').first})")
+        log.debug("FQDN detection skipped (#{e.message.split(':').first})")
         nil
       end
     end

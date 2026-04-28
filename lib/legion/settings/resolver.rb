@@ -21,10 +21,10 @@ module Legion
         @vault_cache     = {}
 
         vault_count = count_vault_refs(settings_hash)
-        log_warn("Vault not connected — #{vault_count} vault:// reference(s) will not be resolved") if vault_count.positive? && !@vault_available
+        log.warn("Vault not connected — #{vault_count} vault:// reference(s) will not be resolved") if vault_count.positive? && !@vault_available
 
         lease_count = count_lease_refs(settings_hash)
-        log_warn("LeaseManager not available — #{lease_count} lease:// reference(s) will not be resolved") if lease_count.positive? && !lease_manager_available?
+        log.warn("LeaseManager not available — #{lease_count} lease:// reference(s) will not be resolved") if lease_count.positive? && !lease_manager_available?
 
         resolved = 0
         unresolved = 0
@@ -36,7 +36,7 @@ module Legion
           end
         end
 
-        log_info("Settings resolver: #{resolved} resolved, #{unresolved} unresolved") if resolved.positive? || unresolved.positive?
+        log.info("Settings resolver: #{resolved} resolved, #{unresolved} unresolved") if resolved.positive? || unresolved.positive?
 
         settings_hash
       end
@@ -101,7 +101,7 @@ module Legion
         Legion::Settings[:crypt][:vault][:connected] == true ||
           (Legion::Crypt.respond_to?(:connected_clusters) && Legion::Crypt.connected_clusters.any?)
       rescue StandardError => e
-        log_debug("Legion::Settings::Resolver#vault_connected? failed: #{e.message}")
+        log.debug("Legion::Settings::Resolver#vault_connected? failed: #{e.message}")
         false
       end
 
@@ -136,7 +136,7 @@ module Legion
 
         resolved = resolve_single(value)
         if resolved.nil?
-          log_warn("Settings resolver: could not resolve #{current_path} (#{value})")
+          log.warn("Settings resolver: could not resolve #{current_path} (#{value})")
           yield(:unresolved) if block_given?
         else
           container[key] = resolved
@@ -149,7 +149,7 @@ module Legion
         if resolvable_chain?(value) && value.all? { |entry| !entry.is_a?(Hash) && !entry.is_a?(Array) }
           resolved = resolve_chain(value)
           if resolved.nil?
-            log_warn("Settings resolver: fallback chain exhausted for #{current_path}")
+            log.warn("Settings resolver: fallback chain exhausted for #{current_path}")
             yield(:unresolved) if block_given?
           else
             container[key] = resolved
@@ -162,27 +162,27 @@ module Legion
       end
 
       def resolve_vault(path, key)
-        log_debug("resolve_vault: path=#{path}, key=#{key}, vault_available=#{@vault_available}")
+        log.debug("resolve_vault: path=#{path}, key=#{key}, vault_available=#{@vault_available}")
         return nil unless @vault_available
 
         @vault_cache[path] ||= begin
-          log_debug("resolve_vault: calling Legion::Crypt.read(#{path.inspect})")
+          log.debug("resolve_vault: calling Legion::Crypt.read(#{path.inspect})")
           result = Legion::Crypt.read(path)
-          log_debug("resolve_vault: read returned #{result.nil? ? 'nil' : "keys=#{result.keys.inspect}"}")
+          log.debug("resolve_vault: read returned #{result.nil? ? 'nil' : "keys=#{result.keys.inspect}"}")
           result
         rescue StandardError => e
-          log_warn("Settings resolver: vault read failed for #{path}: #{e.class}=#{e.message}")
+          log.warn("Settings resolver: vault read failed for #{path}: #{e.class}=#{e.message}")
           nil
         end
 
         data = @vault_cache[path]
         unless data.is_a?(Hash)
-          log_debug("resolve_vault: data at #{path} is #{data.class}, returning nil")
+          log.debug("resolve_vault: data at #{path} is #{data.class}, returning nil")
           return nil
         end
 
         value = data[key.to_sym] || data[key.to_s]
-        log_debug("resolve_vault: #{path}##{key} = #{value.nil? ? 'nil' : '<present>'}")
+        log.debug("resolve_vault: #{path}##{key} = #{value.nil? ? 'nil' : '<present>'}")
         value
       end
 
@@ -191,14 +191,14 @@ module Legion
 
         Legion::Crypt::LeaseManager.instance.fetch(name, key)
       rescue StandardError => e
-        log_debug("Settings resolver: lease fetch failed for #{name}##{key}: #{e.message}")
+        log.debug("Settings resolver: lease fetch failed for #{name}##{key}: #{e.message}")
         nil
       end
 
       def lease_manager_available?
         defined?(Legion::Crypt::LeaseManager)
       rescue StandardError => e
-        log_debug("Legion::Settings::Resolver#lease_manager_available? failed: #{e.message}")
+        log.debug("Legion::Settings::Resolver#lease_manager_available? failed: #{e.message}")
         false
       end
 
@@ -215,7 +215,7 @@ module Legion
         path_parts = path_string.split('.').map(&:to_sym)
         Legion::Crypt::LeaseManager.instance.register_ref(m[1], m[2], path_parts)
       rescue StandardError => e
-        log_debug("Legion::Settings::Resolver#register_lease_ref failed for #{path_string}: #{e.message}")
+        log.debug("Legion::Settings::Resolver#register_lease_ref failed for #{path_string}: #{e.message}")
         nil
       end
 
@@ -241,18 +241,6 @@ module Legion
       def resolve_logger_settings
         raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
         raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
-      end
-
-      def log_info(message)
-        log.info(message)
-      end
-
-      def log_warn(message)
-        log.warn(message)
-      end
-
-      def log_debug(message)
-        log.debug(message)
       end
     end
   end

@@ -1,5 +1,19 @@
 # Legion::Settings Changelog
 
+## [1.3.27] - 2026-04-27
+
+### Added
+- `Settings.reload!` — re-reads all previously loaded config files and re-resolves vault://, env://, and lease:// references; returns a hash of changed keys with old/new values; thread-safe via internal mutex
+- `Settings.watch!` — registers a SIGHUP handler that triggers `reload!` in a background thread; optionally accepts a block for change notification
+- `Settings.on_reload(&block)` — register callbacks invoked after `reload!` detects changes; multiple callbacks supported, called in order, rescue-safe
+- Private `diff_settings` helper for deep comparison of old vs new config hashes
+- Private `fire_reload_callbacks` for executing registered change callbacks
+
+### Fixed
+- `reload!` preserves programmatic module merges and reapplies `.legionio.env` overrides to the reloaded settings loader
+- `watch!` no-ops when SIGHUP is unavailable and coalesces repeated SIGHUP events through a single reload worker
+- Replaced deprecated helper logging method calls with direct `log.debug/info/warn/error` usage
+
 ## [1.3.26] - 2026-04-02
 
 ### Changed
