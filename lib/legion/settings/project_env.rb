@@ -57,14 +57,14 @@ module Legion
 
             parts = line.split('=', 2)
             unless parts.length == 2
-              log_warn("#{path}:#{idx + 1}: skipping malformed line (no '=' found)")
+              log.warn("#{path}:#{idx + 1}: skipping malformed line (no '=' found)")
               next
             end
 
             raw_key, value = parts
             key_parts = raw_key.strip.split('.')
             if key_parts.empty? || key_parts.any?(&:empty?)
-              log_warn("#{path}:#{idx + 1}: skipping invalid key '#{raw_key.strip}'")
+              log.warn("#{path}:#{idx + 1}: skipping invalid key '#{raw_key.strip}'")
               next
             end
 
@@ -85,7 +85,7 @@ module Legion
 
           overrides = parse_env_file(path)
           deep_merge_into!(settings, overrides)
-          log_debug("ProjectEnv: loaded #{path}")
+          log.debug("ProjectEnv: loaded #{path}")
           path
         end
 
@@ -114,14 +114,6 @@ module Legion
             end
           end
           base
-        end
-
-        def log_debug(message)
-          log.debug(message)
-        end
-
-        def log_warn(message)
-          log.warn(message)
         end
       end
     end

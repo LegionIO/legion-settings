@@ -12,6 +12,7 @@
 ### Fixed
 - `reload!` preserves programmatic module merges and reapplies `.legionio.env` overrides to the reloaded settings loader
 - `watch!` no-ops when SIGHUP is unavailable and coalesces repeated SIGHUP events through a single reload worker
+- Replaced deprecated helper logging method calls with direct `log.debug/info/warn/error` usage
 
 ## [1.3.26] - 2026-04-02
 

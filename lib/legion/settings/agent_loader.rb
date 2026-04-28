@@ -20,7 +20,7 @@ module Legion
             definition = load_file(path)
             next unless definition && valid?(definition)
 
-            log_debug("Agent loaded: #{definition[:name]} (#{path})")
+            log.debug("Agent loaded: #{definition[:name]} (#{path})")
             definition.merge(_source_path: path, _source_mtime: File.mtime(path))
           end
         end
@@ -32,7 +32,7 @@ module Legion
           when '.json'         then ::JSON.parse(content, symbolize_names: true)
           end
         rescue StandardError => e
-          log_warn("Failed to parse agent file #{path}: #{e.message}")
+          log.warn("Failed to parse agent file #{path}: #{e.message}")
           nil
         end
 
@@ -50,14 +50,6 @@ module Legion
         def resolve_logger_settings
           raw_logging = Legion::Settings.loader&.settings&.dig(:logging) if Legion::Settings.respond_to?(:loader)
           raw_logging.is_a?(Hash) ? raw_logging : Legion::Logging::Settings.default
-        end
-
-        def log_debug(message)
-          log.debug(message)
-        end
-
-        def log_warn(message)
-          log.warn(message)
         end
       end
     end
