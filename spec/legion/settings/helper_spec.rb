@@ -23,6 +23,19 @@ RSpec.describe Legion::Settings::Helper do
     end)
   end
 
+  let(:non_extension_class) do
+    stub_const('Legion::SomeModule::Runner', Class.new do
+      include Legion::Settings::Helper
+    end)
+  end
+
+  describe '#derive_settings_key_from_class' do
+    it 'falls back to parts.last when class is not under Extensions namespace' do
+      obj = non_extension_class.new
+      expect(obj.send(:derive_settings_key_from_class)).to eq(:runner)
+    end
+  end
+
   describe '#settings' do
     context 'when extension settings exist' do
       before do

@@ -82,6 +82,33 @@ RSpec.describe Legion::Settings::Extensions::Store do
     end
   end
 
+  describe '#filter' do
+    before do
+      store.register('lex-ollama', tier: 1, provider: 'ollama')
+      store.register('lex-bedrock', tier: 1, provider: 'aws')
+      store.register('lex-claude', tier: 2, provider: 'anthropic')
+    end
+
+    it 'returns only entries matching the block' do
+      result = store.filter { |entry| entry[:tier] == 1 }
+      expect(result.size).to eq(2)
+      names = result.map { |e| e[:name] }
+      expect(names).to contain_exactly('lex-ollama', 'lex-bedrock')
+    end
+
+    it 'returns a frozen result' do
+      result = store.filter { |entry| entry[:provider] == 'anthropic' }
+      expect(result).to be_frozen
+      result.each { |entry| expect(entry).to be_frozen }
+    end
+
+    it 'returns all entries when no block is given' do
+      result = store.filter
+      expect(result.size).to eq(3)
+      expect(result).to be_frozen
+    end
+  end
+
   describe '#delete' do
     it 'removes the entry and returns it' do
       store.register('lex-ollama', state: :running)
