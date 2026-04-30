@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'concurrent/map'
+
 module Legion
   module Settings
     # Thread-safe runtime registry for extensions, runners, and tools.
@@ -8,14 +10,13 @@ module Legion
     # their runner modules, and individual tools. Consumers (legion-mcp,
     # legion-llm, legion-rbac, API) read from this registry at runtime.
     #
-    # Write operations are protected by a Mutex for thread safety during
-    # concurrent boot (FixedThreadPool(24)). Read operations return frozen
-    # duplicates so callers cannot mutate the registry internals.
+    # All three stores use Concurrent::Map which provides thread-safe
+    # reads and writes without explicit locking. Read operations return
+    # frozen duplicates so callers cannot mutate the registry internals.
     module Extensions
-      @mutex = Mutex.new
-      @extensions = {}
-      @runners = {}
-      @tools = {}
+      @extensions = Concurrent::Map.new
+      @runners = Concurrent::Map.new
+      @tools = Concurrent::Map.new
 
       class << self
         # ----------------------------------------------------------------
@@ -30,7 +31,7 @@ module Legion
         def register_extension(name, metadata = {})
           key = normalize_key(name)
           entry = { name: key, registered_at: Time.now }.merge(metadata)
-          @mutex.synchronize { @extensions[key] = entry }
+          @extensions[key] = entry
           entry.freeze
         end
 
@@ -42,7 +43,7 @@ module Legion
         def register_runner(name, metadata = {})
           key = normalize_key(name)
           entry = { name: key, registered_at: Time.now }.merge(metadata)
-          @mutex.synchronize { @runners[key] = entry }
+          @runners[key] = entry
           entry.freeze
         end
 
@@ -54,7 +55,7 @@ module Legion
         def register_tool(name, metadata = {})
           key = normalize_key(name)
           entry = { name: key, registered_at: Time.now }.merge(metadata)
-          @mutex.synchronize { @tools[key] = entry }
+          @tools[key] = entry
           entry.freeze
         end
 
@@ -66,13 +67,14 @@ module Legion
         # @return [Hash, nil] frozen copy of the updated entry, or nil if not found
         def transition(name, state, **extra)
           key = normalize_key(name)
-          @mutex.synchronize do
-            entry = @extensions[key]
-            return nil unless entry
-
-            @extensions[key] = entry.dup.merge({ state: state, transitioned_at: Time.now }.merge(extra))
+          updated = nil
+          @extensions.compute(key) do |old_entry|
+            if old_entry
+              updated = old_entry.dup.merge({ state: state, transitioned_at: Time.now }.merge(extra))
+              updated
+            end
           end
-          @extensions[key].freeze
+          updated&.freeze
         end
 
         # ----------------------------------------------------------------
@@ -83,7 +85,7 @@ module Legion
         #
         # @return [Array<Hash>] frozen array of frozen extension hashes
         def extensions
-          snapshot = @mutex.synchronize { @extensions.values.map(&:dup) }
+          snapshot = @extensions.values.map(&:dup)
           snapshot.each(&:freeze)
           snapshot.freeze
         end
@@ -92,7 +94,7 @@ module Legion
         #
         # @return [Array<Hash>] frozen array of frozen runner hashes
         def runners
-          snapshot = @mutex.synchronize { @runners.values.map(&:dup) }
+          snapshot = @runners.values.map(&:dup)
           snapshot.each(&:freeze)
           snapshot.freeze
         end
@@ -101,7 +103,7 @@ module Legion
         #
         # @return [Array<Hash>] frozen array of frozen tool hashes
         def tools
-          snapshot = @mutex.synchronize { @tools.values.map(&:dup) }
+          snapshot = @tools.values.map(&:dup)
           snapshot.each(&:freeze)
           snapshot.freeze
         end
@@ -112,8 +114,7 @@ module Legion
         # @return [Hash, nil] frozen copy of the extension entry, or nil
         def find_extension(name)
           key = normalize_key(name)
-          entry = @mutex.synchronize { @extensions[key]&.dup }
-          entry&.freeze
+          @extensions[key]&.dup&.freeze
         end
 
         # Find a single runner by name.
@@ -122,8 +123,7 @@ module Legion
         # @return [Hash, nil] frozen copy of the runner entry, or nil
         def find_runner(name)
           key = normalize_key(name)
-          entry = @mutex.synchronize { @runners[key]&.dup }
-          entry&.freeze
+          @runners[key]&.dup&.freeze
         end
 
         # Find a single tool by name.
@@ -132,8 +132,7 @@ module Legion
         # @return [Hash, nil] frozen copy of the tool entry, or nil
         def find_tool(name)
           key = normalize_key(name)
-          entry = @mutex.synchronize { @tools[key]&.dup }
-          entry&.freeze
+          @tools[key]&.dup&.freeze
         end
 
         # Filter tools by criteria.
@@ -149,7 +148,7 @@ module Legion
         #   - source: [Symbol] filter by source (:discovery, :manual, :static)
         # @return [Array<Hash>] frozen array of frozen matching tool hashes
         def filter_tools(**criteria)
-          result = @mutex.synchronize { @tools.values.map(&:dup) }
+          result = @tools.values.map(&:dup)
           result = apply_tool_filters(result, criteria)
           result.each(&:freeze)
           result.freeze
@@ -163,7 +162,7 @@ module Legion
         #   - phase: [Integer] filter by phase
         # @return [Array<Hash>] frozen array of frozen matching extension hashes
         def filter_extensions(**criteria)
-          result = @mutex.synchronize { @extensions.values.map(&:dup) }
+          result = @extensions.values.map(&:dup)
           result = apply_extension_filters(result, criteria)
           result.each(&:freeze)
           result.freeze
@@ -179,14 +178,12 @@ module Legion
         # @return [Hash, nil] the removed extension entry, or nil if not found
         def unregister_extension(name)
           key = normalize_key(name)
-          @mutex.synchronize do
-            removed = @extensions.delete(key)
-            return nil unless removed
+          removed = @extensions.delete(key)
+          return nil unless removed
 
-            @runners.delete_if { |_, v| normalize_key(v[:extension]) == key }
-            @tools.delete_if { |_, v| normalize_key(v[:extension]) == key }
-            removed
-          end
+          @runners.each_pair { |k, v| @runners.delete(k) if normalize_key(v[:extension]) == key }
+          @tools.each_pair { |k, v| @tools.delete(k) if normalize_key(v[:extension]) == key }
+          removed
         end
 
         # Unregister a single tool.
@@ -195,18 +192,16 @@ module Legion
         # @return [Hash, nil] the removed tool entry, or nil if not found
         def unregister_tool(name)
           key = normalize_key(name)
-          @mutex.synchronize { @tools.delete(key) }
+          @tools.delete(key)
         end
 
         # Clear all registries. Intended for test cleanup.
         #
         # @return [void]
         def reset!
-          @mutex.synchronize do
-            @extensions.clear
-            @runners.clear
-            @tools.clear
-          end
+          @extensions.clear
+          @runners.clear
+          @tools.clear
         end
 
         # ----------------------------------------------------------------
@@ -215,17 +210,17 @@ module Legion
 
         # @return [Integer] number of registered extensions
         def extension_count
-          @mutex.synchronize { @extensions.size }
+          @extensions.size
         end
 
         # @return [Integer] number of registered runners
         def runner_count
-          @mutex.synchronize { @runners.size }
+          @runners.size
         end
 
         # @return [Integer] number of registered tools
         def tool_count
-          @mutex.synchronize { @tools.size }
+          @tools.size
         end
 
         private
@@ -252,9 +247,8 @@ module Legion
         end
 
         def filter_by_extension_state!(result, state)
-          ext_snapshot = @extensions.dup
           result.select! do |t|
-            ext = ext_snapshot[normalize_key(t[:extension])]
+            ext = @extensions[normalize_key(t[:extension])]
             ext && ext[:state] == state
           end
         end
