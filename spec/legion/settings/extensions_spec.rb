@@ -769,4 +769,75 @@ RSpec.describe Legion::Settings::Extensions do
       expect(mcp_enabled.map { |e| e[:name] }).not_to include('lex-microsoft_teams')
     end
   end
+
+  # ================================================================
+  # Settings schema introspection
+  # ================================================================
+
+  describe 'settings schema and effective settings' do
+    it 'stores extension default settings schema' do
+      schema = {
+        logger:    { level: 'info' },
+        workers:   1,
+        channels:  {
+          poll_interval: 30,
+          max_retries:   3,
+          webhook:       { enabled: false, secret: nil }
+        },
+        runners:   {},
+        functions: {}
+      }
+      registry.register_extension('lex-microsoft_teams', {
+                                    state:           :running,
+                                    settings_schema: schema
+                                  })
+
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:settings_schema]).to eq(schema)
+      expect(ext[:settings_schema][:channels][:poll_interval]).to eq(30)
+    end
+
+    it 'stores effective runtime settings (defaults merged with user overrides)' do
+      schema = { channels: { poll_interval: 30, webhook: { enabled: false } }, workers: 1 }
+      effective = { channels: { poll_interval: 10, webhook: { enabled: true, secret: 'abc' } }, workers: 4 }
+
+      registry.register_extension('lex-microsoft_teams', {
+                                    state:           :running,
+                                    settings_schema: schema,
+                                    settings:        effective
+                                  })
+
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:settings_schema][:channels][:poll_interval]).to eq(30)
+      expect(ext[:settings][:channels][:poll_interval]).to eq(10)
+      expect(ext[:settings][:channels][:webhook][:enabled]).to be true
+      expect(ext[:settings][:workers]).to eq(4)
+    end
+
+    it 'defaults both to empty hash when not provided' do
+      registry.register_extension('lex-github', { state: :running })
+      ext = registry.find_extension('lex-github')
+      expect(ext[:settings_schema]).to eq({})
+      expect(ext[:settings]).to eq({})
+    end
+
+    it 'enables CLI/API/LLM to query all config options and current values' do
+      registry.register_extension('lex-microsoft_teams', {
+                                    state:           :running,
+                                    settings_schema: {
+                                      channels:     { poll_interval: 30 },
+                                      integrations: { jira: { enabled: false } }
+                                    },
+                                    settings:        {
+                                      channels:     { poll_interval: 10 },
+                                      integrations: { jira: { enabled: true, project: 'LEGION' } }
+                                    }
+                                  })
+
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:settings_schema].keys).to include(:channels, :integrations)
+      expect(ext[:settings][:integrations][:jira][:enabled]).to be true
+      expect(ext[:settings][:integrations][:jira][:project]).to eq('LEGION')
+    end
+  end
 end

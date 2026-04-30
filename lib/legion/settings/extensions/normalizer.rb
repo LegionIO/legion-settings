@@ -96,7 +96,7 @@ module Legion
         #   LegionIO API: extension listing, diagnostics
         #   legion-mcp: extension_info resource
         #   legion-llm: extension filter in tool queries
-        def normalize_extension(name, metadata)
+        def normalize_extension(name, metadata) # rubocop:disable Metrics/AbcSize
           segments = resolve_segments(name, metadata)
           {
             # Identity (derived from gem name via Helpers::Segments conventions)
@@ -162,7 +162,16 @@ module Legion
             # Tool behavior defaults
             mcp_tools:                metadata.fetch(:mcp_tools, true) == true,
             mcp_tools_deferred:       metadata.fetch(:mcp_tools_deferred, true) == true,
-            sticky_tools:             metadata.fetch(:sticky_tools, true) == true
+            sticky_tools:             metadata.fetch(:sticky_tools, true) == true,
+
+            # Extension settings — the complete declared configuration with
+            # effective runtime values (defaults merged with user overrides).
+            # Enables introspection: "what can I configure?" and "what's the
+            # current value?" without loading the extension module.
+            # Populated by LegionIO from default_settings merged with
+            # Legion::Settings[:extensions][:lex_name] at registration time.
+            settings_schema:          metadata[:settings_schema] || {},
+            settings:                 metadata[:settings] || {}
           }
         end
 
