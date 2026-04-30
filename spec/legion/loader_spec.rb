@@ -174,6 +174,15 @@ RSpec.describe Legion::Settings::Loader do
       expect(loader[:logging][:level]).to eq(:info)
     end
 
+    it 'strips UTF-8 BOM from config files' do
+      bom_file = File.join(assets_dir, 'bom_test.json')
+      File.write(bom_file, "\xEF\xBB\xBF{\"test_bom\": true}", encoding: 'ASCII-8BIT')
+      loader.load_file(bom_file)
+      expect(loader[:test_bom]).to be true
+    ensure
+      FileUtils.rm_f(bom_file)
+    end
+
     it 'handles an empty file without error' do
       empty_file = File.join(assets_dir, 'empty.json')
       expect { loader.load_file(empty_file) }.not_to raise_error
