@@ -2,6 +2,7 @@
 
 require_relative 'extensions/store'
 require_relative 'extensions/filter'
+require_relative 'extensions/normalizer'
 
 module Legion
   module Settings
@@ -24,15 +25,18 @@ module Legion
         # ----------------------------------------------------------------
 
         def register_extension(name, metadata = {})
-          @extension_store.register(name, metadata)
+          normalized = Normalizer.normalize_extension(name, metadata)
+          @extension_store.register(name, normalized)
         end
 
         def register_runner(name, metadata = {})
-          @runner_store.register(name, metadata)
+          normalized = Normalizer.normalize_runner(name, metadata)
+          @runner_store.register(name, normalized)
         end
 
         def register_tool(name, metadata = {})
-          @tool_store.register(name, metadata)
+          normalized = Normalizer.normalize_tool(name, metadata)
+          @tool_store.register(name, normalized)
         end
 
         def transition(name, state, **extra)
