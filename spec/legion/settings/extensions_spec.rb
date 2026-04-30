@@ -476,7 +476,7 @@ RSpec.describe Legion::Settings::Extensions do
           registry.register_tool("tool-#{i}", sample_tool("tool-#{i}", extension: "lex-ext-#{i}"))
         end
       end
-      threads.each(&:join)
+      threads.each(&:value)
 
       expect(registry.extension_count).to eq(20)
       expect(registry.runner_count).to eq(20)
@@ -500,7 +500,7 @@ RSpec.describe Legion::Settings::Extensions do
         end
       end
 
-      (writers + readers).each(&:join)
+      (writers + readers).each(&:value)
       expect(registry.extension_count).to eq(15)
     end
 
@@ -512,7 +512,7 @@ RSpec.describe Legion::Settings::Extensions do
           registry.transition('lex-ollama', state)
         end
       end
-      threads.each(&:join)
+      threads.each(&:value)
 
       ext = registry.find_extension('lex-ollama')
       expect(%i[discovered loaded running stopped]).to include(ext[:state])

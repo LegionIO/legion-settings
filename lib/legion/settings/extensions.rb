@@ -30,7 +30,7 @@ module Legion
         # @return [Hash] frozen copy of the registered entry
         def register_extension(name, metadata = {})
           key = normalize_key(name)
-          entry = { name: key, registered_at: Time.now }.merge(metadata)
+          entry = metadata.merge(name: key, registered_at: Time.now)
           @extensions[key] = entry
           entry.freeze
         end
@@ -42,7 +42,7 @@ module Legion
         # @return [Hash] frozen copy of the registered entry
         def register_runner(name, metadata = {})
           key = normalize_key(name)
-          entry = { name: key, registered_at: Time.now }.merge(metadata)
+          entry = metadata.merge(name: key, registered_at: Time.now)
           @runners[key] = entry
           entry.freeze
         end
@@ -54,7 +54,7 @@ module Legion
         # @return [Hash] frozen copy of the registered entry
         def register_tool(name, metadata = {})
           key = normalize_key(name)
-          entry = { name: key, registered_at: Time.now }.merge(metadata)
+          entry = metadata.merge(name: key, registered_at: Time.now)
           @tools[key] = entry
           entry.freeze
         end
@@ -67,14 +67,12 @@ module Legion
         # @return [Hash, nil] frozen copy of the updated entry, or nil if not found
         def transition(name, state, **extra)
           key = normalize_key(name)
-          updated = nil
-          @extensions.compute(key) do |old_entry|
-            if old_entry
-              updated = old_entry.dup.merge({ state: state, transitioned_at: Time.now }.merge(extra))
-              updated
-            end
-          end
-          updated&.freeze
+          old_entry = @extensions[key]
+          return nil unless old_entry
+
+          updated = old_entry.dup.merge({ state: state, transitioned_at: Time.now }.merge(extra))
+          @extensions[key] = updated
+          updated.freeze
         end
 
         # ----------------------------------------------------------------

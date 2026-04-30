@@ -15,7 +15,7 @@
 - `reset!` — clear all registries (for test cleanup)
 - `extension_count`, `runner_count`, `tool_count` — convenience count methods
 - All read operations return frozen duplicates to prevent mutation of registry internals
-- Mutex-protected writes for thread safety during concurrent extension loading
+- Thread-safe reads and writes via `Concurrent::Map` without explicit locking
 
 ## [1.3.27] - 2026-04-27
 
