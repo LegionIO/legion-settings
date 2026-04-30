@@ -47,27 +47,47 @@ RSpec.describe Legion::Settings::OS do
   end
 
   describe '#os' do
-    # The #os instance method calls windows?/mac?/unix? without self.class,
-    # so it only works when mixed into a context where those are also instance
-    # methods. Create a wrapper that delegates to the class methods.
-    let(:os_host) do
-      mod = described_class
+    def build_os_host(windows: false, mac: false, unix: true)
+      w = windows
+      m = mac
+      u = unix
       Class.new do
-        include mod
+        include Legion::Settings::OS
 
-        define_method(:windows?) { mod.windows? }
-        define_method(:mac?) { mod.mac? }
-        define_method(:unix?) { mod.unix? }
+        define_method(:windows?) { w }
+        define_method(:mac?) { m }
+        define_method(:unix?) { u }
       end.new
     end
 
-    it 'returns a known platform string' do
-      expect(%w[windows mac unix linux]).to include(os_host.os)
+    it 'returns windows when windows? is true' do
+      host = build_os_host(windows: true, mac: false, unix: false)
+      expect(host.os).to eq('windows')
     end
 
-    it 'returns mac on darwin' do
-      skip 'only verifiable on macOS' unless described_class.mac?
-      expect(os_host.os).to eq('mac')
+    it 'returns mac when mac? is true' do
+      host = build_os_host(windows: false, mac: true, unix: true)
+      expect(host.os).to eq('mac')
+    end
+
+    it 'returns unix when unix? is true and mac? is false' do
+      host = build_os_host(windows: false, mac: false, unix: true)
+      expect(host.os).to eq('unix')
+    end
+
+    it 'returns linux when all platform checks are false' do
+      host = build_os_host(windows: false, mac: false, unix: false)
+      expect(host.os).to eq('linux')
+    end
+
+    it 'checks windows before mac' do
+      host = build_os_host(windows: true, mac: true, unix: true)
+      expect(host.os).to eq('windows')
+    end
+
+    it 'checks mac before unix' do
+      host = build_os_host(windows: false, mac: true, unix: true)
+      expect(host.os).to eq('mac')
     end
   end
 
