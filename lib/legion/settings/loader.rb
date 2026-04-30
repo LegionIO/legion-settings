@@ -8,6 +8,7 @@ require 'concurrent/hash'
 require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
+require_relative 'deep_merge'
 
 module Legion
   module Settings
@@ -48,12 +49,21 @@ module Legion
       def dns_defaults
         resolv_config = read_resolv_config
         {
-          fqdn:           detect_fqdn,
+          fqdn:           nil, # lazy — resolved on first access via resolve_fqdn!
           default_domain: resolv_config[:search_domains]&.first,
           search_domains: resolv_config[:search_domains] || [],
           nameservers:    resolv_config[:nameservers] || [],
           bootstrap:      { enabled: true }
         }
+      end
+
+      # Lazily resolve the FQDN on first access instead of blocking at init.
+      #
+      # @return [String, nil] the fully qualified domain name, or nil
+      def resolve_fqdn!
+        return @settings[:dns][:fqdn] if @settings.dig(:dns, :fqdn)
+
+        @settings[:dns][:fqdn] = detect_fqdn
       end
 
       def client_defaults
@@ -365,17 +375,7 @@ module Legion
       end
 
       def deep_merge(hash_one, hash_two)
-        merged = hash_one.dup
-        hash_two.each do |key, value|
-          merged[key] = if hash_one[key].is_a?(Hash) && value.is_a?(Hash)
-                          deep_merge(hash_one[key], value)
-                        elsif hash_one[key].is_a?(Array) && value.is_a?(Array)
-                          hash_one[key].concat(value).uniq
-                        else
-                          value
-                        end
-        end
-        merged
+        DeepMerge.deep_merge(hash_one, hash_two)
       end
 
       def create_loaded_tempfile!

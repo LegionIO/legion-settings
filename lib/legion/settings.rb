@@ -11,6 +11,7 @@ require 'legion/settings/helper'
 require 'legion/settings/overlay'
 require 'legion/settings/project_env'
 require 'legion/settings/extensions'
+require 'legion/settings/deep_merge'
 
 module Legion
   module Settings
@@ -57,6 +58,10 @@ module Legion
       def [](key)
         logger.info('Legion::Settings was not loaded, auto-loading now') if @loader.nil?
         load if @loader.nil?
+
+        # Fast path: skip overlay resolution when no overlay is active
+        return @loader[key] unless Overlay.active?
+
         overlay_val = Overlay.overlay_for(key)
         base_val = @loader[key]
         if overlay_val.is_a?(Hash) && base_val.is_a?(Hash)
@@ -98,7 +103,7 @@ module Legion
         thing[key.to_sym] = hash
         @loader.load_module_settings(thing)
         schema.register(key.to_sym, hash)
-        validate_module_on_merge(key.to_sym)
+        # Validation deferred to validate! — don't validate on every merge during boot
       end
 
       # Clean hook for legion-* core libraries to register their defaults.
@@ -328,16 +333,7 @@ module Legion
       end
 
       def deep_merge_for_overlay(base, overlay)
-        result = base.dup
-        overlay.each do |key, value|
-          existing = result[key]
-          result[key] = if existing.is_a?(Hash) && value.is_a?(Hash)
-                          deep_merge_for_overlay(existing, value)
-                        else
-                          value
-                        end
-        end
-        result
+        DeepMerge.deep_merge(base, overlay)
       end
 
       def ensure_loader

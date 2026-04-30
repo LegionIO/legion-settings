@@ -52,13 +52,29 @@ RSpec.describe Legion::Settings::Loader do
       expect(dns[:nameservers]).to be_an(Array)
     end
 
-    it 'has an fqdn string or nil' do
-      expect(dns[:fqdn]).to be_a(String).or be_nil
+    it 'has fqdn nil initially (lazy-resolved via resolve_fqdn!)' do
+      expect(dns[:fqdn]).to be_nil
     end
 
     it 'has a bootstrap hash' do
       expect(dns[:bootstrap]).to be_a(Hash)
       expect(dns[:bootstrap][:enabled]).to eq(true)
+    end
+  end
+
+  describe '#resolve_fqdn!' do
+    it 'lazily resolves the FQDN (dns.fqdn starts nil)' do
+      expect(loader.settings[:dns][:fqdn]).to be_nil
+      result = loader.resolve_fqdn!
+      # After resolve, it is either a string or nil depending on DNS
+      expect(result).to be_a(String).or be_nil
+    end
+
+    it 'caches the result on subsequent calls' do
+      loader.resolve_fqdn!
+      first = loader.settings[:dns][:fqdn]
+      loader.resolve_fqdn!
+      expect(loader.settings[:dns][:fqdn]).to eq(first)
     end
   end
 

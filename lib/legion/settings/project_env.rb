@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/logging'
+require 'legion/settings/deep_merge'
 
 module Legion
   module Settings
@@ -106,14 +107,7 @@ module Legion
         end
 
         def deep_merge_into!(base, overrides)
-          overrides.each do |key, value|
-            if base[key].is_a?(Hash) && value.is_a?(Hash)
-              deep_merge_into!(base[key], value)
-            else
-              base[key] = value
-            end
-          end
-          base
+          DeepMerge.deep_merge!(base, overrides)
         end
       end
     end
