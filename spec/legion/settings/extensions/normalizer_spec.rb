@@ -74,6 +74,40 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
                                               })
       expect(result[:input_schema]).to eq({ preferred: true })
     end
+
+    it 'resolves :ext_name alias to :extension' do
+      result = described_class.normalize_tool('t', { ext_name: 'lex-ollama' })
+      expect(result[:extension]).to eq('lex-ollama')
+      expect(result).not_to have_key(:ext_name)
+    end
+
+    it 'resolves :runner_snake alias to :runner' do
+      result = described_class.normalize_tool('t', { runner_snake: 'ollama_inference' })
+      expect(result[:runner]).to eq('ollama_inference')
+      expect(result).not_to have_key(:runner_snake)
+    end
+
+    it 'prefers :extension over :ext_name' do
+      result = described_class.normalize_tool('t', { extension: 'canonical', ext_name: 'alias' })
+      expect(result[:extension]).to eq('canonical')
+    end
+
+    it 'preserves extra fields not in canonical shape' do
+      result = described_class.normalize_tool('t', {
+                                                description: 'test',
+                                                confidence:  0.9,
+                                                custom_flag: true
+                                              })
+      expect(result[:description]).to eq('test')
+      expect(result[:confidence]).to eq(0.9)
+      expect(result[:custom_flag]).to be true
+    end
+
+    it 'canonical fields override extra fields with same key' do
+      result = described_class.normalize_tool('t', { name: 'should-be-overridden', deferred: true })
+      expect(result[:name]).to eq('t')
+      expect(result[:deferred]).to be true
+    end
   end
 
   describe '.resolve_dispatch_type' do
@@ -128,6 +162,17 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       result = described_class.normalize_runner('r', {})
       expect(result[:exposed]).to be true
     end
+
+    it 'preserves extra runner fields' do
+      result = described_class.normalize_runner('r', {
+                                                  extension:     'lex-ollama',
+                                                  class_methods: { chat: { args: [:message] } },
+                                                  trigger_words: %w[ollama chat]
+                                                })
+      expect(result[:extension]).to eq('lex-ollama')
+      expect(result[:class_methods]).to eq({ chat: { args: [:message] } })
+      expect(result[:trigger_words]).to eq(%w[ollama chat])
+    end
   end
 
   describe '.normalize_extension' do
@@ -153,6 +198,51 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       result = described_class.normalize_extension('lex-x', {})
       expect(result[:state]).to eq(:discovered)
       expect(result[:runners]).to eq([])
+    end
+
+    it 'includes description field' do
+      result = described_class.normalize_extension('lex-ollama', { description: 'Ollama provider' })
+      expect(result[:description]).to eq('Ollama provider')
+    end
+
+    it 'preserves HandleRegistry fields' do
+      result = described_class.normalize_extension('lex-ollama', {
+                                                     state:                    :running,
+                                                     gem_name:                 'lex-ollama',
+                                                     active_version:           '0.3.10',
+                                                     latest_installed_version: '0.3.11',
+                                                     reload_state:             :idle,
+                                                     hot_reloadable:           true,
+                                                     gem_dir:                  '/path/to/gem',
+                                                     loaded_at:                Time.now,
+                                                     actors:                   [:subscription],
+                                                     tools:                    ['legion.ollama_chat']
+                                                   })
+      expect(result[:state]).to eq(:running)
+      expect(result[:gem_name]).to eq('lex-ollama')
+      expect(result[:active_version]).to eq('0.3.10')
+      expect(result[:latest_installed_version]).to eq('0.3.11')
+      expect(result[:reload_state]).to eq(:idle)
+      expect(result[:hot_reloadable]).to be true
+      expect(result[:gem_dir]).to eq('/path/to/gem')
+      expect(result[:loaded_at]).to be_a(Time)
+      expect(result[:actors]).to eq([:subscription])
+      expect(result[:tools]).to eq(['legion.ollama_chat'])
+    end
+
+    it 'preserves Governance fields' do
+      result = described_class.normalize_extension('lex-ollama', {
+                                                     risk_tier:   'low',
+                                                     airb_status: 'approved',
+                                                     permissions: ['read'],
+                                                     author:      'Esity',
+                                                     checksum:    'sha256:abc'
+                                                   })
+      expect(result[:risk_tier]).to eq('low')
+      expect(result[:airb_status]).to eq('approved')
+      expect(result[:permissions]).to eq(['read'])
+      expect(result[:author]).to eq('Esity')
+      expect(result[:checksum]).to eq('sha256:abc')
     end
   end
 end

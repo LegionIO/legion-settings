@@ -5,28 +5,25 @@ module Legion
     module Extensions
       # Normalizes tool, runner, and extension entries into canonical shapes
       # so every consumer sees the same fields regardless of the registration source.
+      #
+      # Extra fields not in the canonical shape are preserved in the output —
+      # the normalizer guarantees canonical fields exist but does not strip
+      # caller-supplied metadata that consumers like HandleRegistry, Governance,
+      # or SecurityScanner may need.
       module Normalizer
         module_function
 
-        # Canonical tool entry shape. Every field is present (possibly nil/empty).
-        # Consumers can read entry[:input_schema] without defensive ||.
-        #
-        # Required by consumers:
-        #   legion-llm ToolDefinition: name, description, input_schema, tool_class, extension, runner
-        #   legion-llm dispatcher:     tool_class, extension, runner, function
-        #   legion-llm executor:       tool_class, name, deferred
-        #   legion-mcp ToolAdapter:    name, description, input_schema, tool_class
-        #   legion-mcp server:         name
-        #   legion-rbac:               extension, function
+        # Canonical tool entry shape. Every canonical field is present (possibly nil/empty).
+        # Extra fields from metadata are merged in after canonical fields.
         def normalize_tool(name, metadata)
-          {
+          canonical = {
             name:          name.to_s,
             description:   resolve_string(metadata, :description),
             input_schema:  resolve_schema(metadata),
             tool_class:    metadata[:tool_class],
             dispatch_type: resolve_dispatch_type(metadata),
-            extension:     resolve_string(metadata, :extension),
-            runner:        resolve_string(metadata, :runner),
+            extension:     resolve_tool_extension(metadata),
+            runner:        resolve_tool_runner(metadata),
             function:      resolve_string(metadata, :function),
             deferred:      metadata[:deferred] == true,
             sticky:        metadata.fetch(:sticky, true) == true,
@@ -36,11 +33,12 @@ module Legion
             tags:          Array(metadata[:tags]).map(&:to_s),
             source:        metadata.fetch(:source, :unknown).to_sym
           }
+          merge_extra(metadata, canonical)
         end
 
-        # Canonical runner entry shape.
+        # Canonical runner entry shape. Extra fields preserved.
         def normalize_runner(name, metadata)
-          {
+          canonical = {
             name:          name.to_s,
             extension:     resolve_string(metadata, :extension),
             runner_module: resolve_string(metadata, :runner_module),
@@ -48,20 +46,26 @@ module Legion
             exposed:       metadata.fetch(:exposed, true) == true,
             definition:    metadata[:definition]
           }
+          merge_extra(metadata, canonical)
         end
 
-        # Canonical extension entry shape.
+        # Canonical extension entry shape. Extra fields preserved.
+        # HandleRegistry, Governance, and SecurityScanner pass fields like
+        # gem_name, spec, gem_dir, risk_tier, etc. that are NOT canonical
+        # but must survive registration.
         def normalize_extension(name, metadata)
-          {
-            name:       name.to_s,
-            version:    resolve_string(metadata, :version),
-            state:      metadata.fetch(:state, :discovered).to_sym,
-            category:   metadata[:category],
-            tier:       metadata[:tier],
-            phase:      metadata[:phase],
-            const_path: resolve_string(metadata, :const_path),
-            runners:    Array(metadata[:runners])
+          canonical = {
+            name:        name.to_s,
+            description: resolve_string(metadata, :description),
+            version:     resolve_string(metadata, :version),
+            state:       metadata.fetch(:state, :discovered).to_sym,
+            category:    metadata[:category],
+            tier:        metadata[:tier],
+            phase:       metadata[:phase],
+            const_path:  resolve_string(metadata, :const_path),
+            runners:     Array(metadata[:runners])
           }
+          merge_extra(metadata, canonical)
         end
 
         # Resolves input_schema from whichever key the caller used.
@@ -92,9 +96,31 @@ module Legion
           end
         end
 
+        # Discovery uses :ext_name, canonical uses :extension.
+        def resolve_tool_extension(metadata)
+          resolve_string(metadata, :extension) || resolve_string(metadata, :ext_name)
+        end
+
+        # Discovery uses :runner_snake, canonical uses :runner.
+        def resolve_tool_runner(metadata)
+          resolve_string(metadata, :runner) || resolve_string(metadata, :runner_snake)
+        end
+
         def resolve_string(metadata, key)
           value = metadata[key]
           value&.to_s
+        end
+
+        # Merges extra fields from metadata that are not in the canonical set.
+        # Canonical fields always win — extra fields fill in around them.
+        def merge_extra(metadata, canonical)
+          extra = metadata.reject { |k, _| canonical.key?(k) || internal_alias?(k) }
+          canonical.merge(extra)
+        end
+
+        # Keys that are aliases resolved into canonical fields — don't duplicate them.
+        def internal_alias?(key)
+          %i[ext_name runner_snake parameters params_schema].include?(key)
         end
       end
     end
