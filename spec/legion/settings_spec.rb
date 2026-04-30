@@ -76,6 +76,21 @@ RSpec.describe 'Legion::Settings' do
   end
 end
 
+RSpec.describe 'Legion::Settings.loaded?' do
+  before { Legion::Settings.reset! }
+
+  it 'returns false before load is called with config files' do
+    expect(Legion::Settings.loaded?).to be false
+  end
+
+  it 'returns true after load is called with a config file' do
+    assets_dir = File.join(File.dirname(__FILE__), 'assets')
+    config_file = File.join(assets_dir, 'config.json')
+    Legion::Settings.load(config_file: config_file)
+    expect(Legion::Settings.loaded?).to be true
+  end
+end
+
 RSpec.describe 'DNS bootstrap integration' do
   before do
     Legion::Settings.reset!

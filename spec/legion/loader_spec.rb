@@ -557,6 +557,99 @@ RSpec.describe Legion::Settings::Loader do
     end
   end
 
+  describe '#load_client_overrides' do
+    context 'when subscriptions is an Array' do
+      it 'appends the client name subscription and deduplicates' do
+        loader.settings[:client][:subscriptions] = ['existing']
+        loader.load_client_overrides
+        expect(loader.settings[:client][:subscriptions]).to include("client:#{loader.settings[:client][:name]}")
+        expect(loader.settings[:client][:subscriptions]).to include('existing')
+      end
+    end
+
+    context 'when subscriptions is not an Array' do
+      it 'logs a warning and does not crash' do
+        loader.settings[:client][:subscriptions] = 'not_an_array'
+        expect { loader.load_client_overrides }.not_to raise_error
+      end
+
+      it 'does not modify the non-Array subscriptions value' do
+        loader.settings[:client][:subscriptions] = 'not_an_array'
+        loader.load_client_overrides
+        expect(loader.settings[:client][:subscriptions]).to eq('not_an_array')
+      end
+    end
+  end
+
+  describe '#load_overrides!' do
+    context 'when legion_service_name is client or rspec' do
+      it 'calls load_client_overrides' do
+        allow(loader).to receive(:legion_service_name).and_return('rspec')
+        expect(loader).to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+
+      it 'calls load_client_overrides for client service name' do
+        allow(loader).to receive(:legion_service_name).and_return('client')
+        expect(loader).to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+    end
+
+    context 'when legion_service_name is something else' do
+      it 'does not call load_client_overrides' do
+        allow(loader).to receive(:legion_service_name).and_return('worker')
+        expect(loader).not_to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+    end
+  end
+
+  describe '#validate' do
+    it 'does not raise when Legion::Settings.validate! raises ValidationError' do
+      allow(Legion::Settings).to receive(:validate!).and_raise(
+        Legion::Settings::ValidationError.new([{ module: :test, path: 'test.key', message: 'bad' }])
+      )
+      expect { loader.validate }.not_to raise_error
+    end
+  end
+
+  describe '#setting_category' do
+    it 'returns mapped entries with :name merged' do
+      loader.settings[:transport] = { host: { default: 'localhost' }, port: { default: 5672 } }
+      result = loader.send(:setting_category, :transport)
+      expect(result).to be_an(Array)
+      expect(result).to include(a_hash_including(name: 'host', default: 'localhost'))
+      expect(result).to include(a_hash_including(name: 'port', default: 5672))
+    end
+  end
+
+  describe '#definition_exists?' do
+    it 'returns true for an existing key' do
+      loader.settings[:transport] = { host: 'localhost', port: 5672 }
+      expect(loader.send(:definition_exists?, :transport, :host)).to be true
+    end
+
+    it 'returns false for a missing key' do
+      loader.settings[:transport] = { host: 'localhost' }
+      expect(loader.send(:definition_exists?, :transport, :nonexistent)).to be false
+    end
+  end
+
+  describe '#warning' do
+    it 'appends to @warnings with merged data' do
+      loader.send(:warning, 'test msg', extra: 'data')
+      expect(loader.warnings.last).to eq({ message: 'test msg', extra: 'data' })
+    end
+
+    it 'logs a warn' do
+      expect(loader.warnings).to be_empty
+      loader.send(:warning, 'another warning')
+      expect(loader.warnings.size).to eq(1)
+      expect(loader.warnings.last[:message]).to eq('another warning')
+    end
+  end
+
   describe 'indifferent access reset' do
     it 'load_module_settings resets @indifferent_access so string keys work after to_hash' do
       loader.to_hash
