@@ -10,8 +10,8 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
                                                 description:   'Read a file',
                                                 input_schema:  { type: 'object', properties: { path: { type: 'string' } } },
                                                 tool_class:    tool_class,
-                                                extension:     'lex-ollama',
-                                                runner:        'ollama/inference',
+                                                extension:     'lex-github',
+                                                runner:        'github/repos',
                                                 function:      'chat',
                                                 deferred:      false,
                                                 sticky:        true,
@@ -29,8 +29,8 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       expect(result[:description]).to eq('Read a file')
       expect(result[:input_schema]).to eq({ type: 'object', properties: { path: { type: 'string' } } })
       expect(result[:tool_class]).to eq(tool_class)
-      expect(result[:extension]).to eq('lex-ollama')
-      expect(result[:runner]).to eq('ollama/inference')
+      expect(result[:extension]).to eq('lex-github')
+      expect(result[:runner]).to eq('github/repos')
       expect(result[:function]).to eq('chat')
       expect(result[:deferred]).to be false
       expect(result[:sticky]).to be true
@@ -90,13 +90,13 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
     end
 
     it 'resolves :ext_name alias to :extension' do
-      result = described_class.normalize_tool('t', { ext_name: 'lex-ollama' })
-      expect(result[:extension]).to eq('lex-ollama')
+      result = described_class.normalize_tool('t', { ext_name: 'lex-github' })
+      expect(result[:extension]).to eq('lex-github')
     end
 
     it 'resolves :runner_snake alias to :runner' do
-      result = described_class.normalize_tool('t', { runner_snake: 'ollama_inference' })
-      expect(result[:runner]).to eq('ollama_inference')
+      result = described_class.normalize_tool('t', { runner_snake: 'github_repos' })
+      expect(result[:runner]).to eq('github_repos')
     end
 
     it 'prefers :extension over :ext_name' do
@@ -127,7 +127,7 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
 
     it 'returns :runner when tool_class is nil but extension and function are present' do
       expect(described_class.resolve_dispatch_type({
-                                                     extension: 'lex-ollama', function: 'chat'
+                                                     extension: 'lex-github', function: 'chat'
                                                    })).to eq(:runner)
     end
 
@@ -144,24 +144,24 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
 
   describe '.normalize_runner' do
     it 'produces complete shape' do
-      result = described_class.normalize_runner('ollama/inference/chat', {
-                                                  extension:     'lex-ollama',
-                                                  runner_module: 'Legion::Extensions::Ollama::Runners::Inference',
+      result = described_class.normalize_runner('github/repos/list', {
+                                                  extension:     'lex-github',
+                                                  runner_module: 'Legion::Extensions::Github::Runners::Repos',
                                                   function:      'chat',
                                                   exposed:       true,
                                                   functions:     { chat: { args: %i[message model], desc: 'Chat' } },
-                                                  trigger_words: %w[ollama chat],
+                                                  trigger_words: %w[github repos],
                                                   mcp_tools:     true,
                                                   mcp_deferred:  false
                                                 })
 
-      expect(result[:name]).to eq('ollama/inference/chat')
-      expect(result[:extension]).to eq('lex-ollama')
-      expect(result[:runner_module]).to eq('Legion::Extensions::Ollama::Runners::Inference')
+      expect(result[:name]).to eq('github/repos/list')
+      expect(result[:extension]).to eq('lex-github')
+      expect(result[:runner_module]).to eq('Legion::Extensions::Github::Runners::Repos')
       expect(result[:function]).to eq('chat')
       expect(result[:exposed]).to be true
       expect(result[:functions]).to eq({ chat: { args: %i[message model], desc: 'Chat' } })
-      expect(result[:trigger_words]).to eq(%w[ollama chat])
+      expect(result[:trigger_words]).to eq(%w[github repos])
       expect(result[:mcp_tools]).to be true
       expect(result[:mcp_deferred]).to be false
     end
@@ -184,16 +184,16 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
   describe '.normalize_extension' do
     it 'produces complete shape' do
       now = Time.now
-      result = described_class.normalize_extension('lex-ollama', {
+      result = described_class.normalize_extension('lex-github', {
                                                      version:                  '0.3.10',
                                                      state:                    :running,
                                                      category:                 :ai,
                                                      tier:                     1,
                                                      phase:                    1,
-                                                     const_path:               'Legion::Extensions::Ollama',
-                                                     runners:                  %w[ollama/inference ollama/embedding],
-                                                     description:              'Ollama local LLM provider',
-                                                     gem_name:                 'lex-ollama',
+                                                     const_path:               'Legion::Extensions::Github',
+                                                     runners:                  %w[github/repos github/pulls],
+                                                     description:              'GitHub integration provider',
+                                                     gem_name:                 'lex-github',
                                                      gem_dir:                  '/path/to/gem',
                                                      active_version:           '0.3.10',
                                                      latest_installed_version: '0.3.11',
@@ -201,9 +201,9 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
                                                      reload_state:             :idle,
                                                      hot_reloadable:           true,
                                                      actors:                   [:subscription],
-                                                     tools:                    ['legion.ollama_chat'],
+                                                     tools:                    ['legion.github_repos_list'],
                                                      absorbers:                [],
-                                                     routes:                   ['/api/ollama'],
+                                                     routes:                   ['/api/github'],
                                                      risk_tier:                'low',
                                                      airb_status:              'approved',
                                                      permissions:              ['read'],
@@ -215,14 +215,14 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
                                                    })
 
       # Identity + derived fields
-      expect(result[:name]).to eq('lex-ollama')
-      expect(result[:gem_name]).to eq('lex-ollama')
-      expect(result[:description]).to eq('Ollama local LLM provider')
+      expect(result[:name]).to eq('lex-github')
+      expect(result[:gem_name]).to eq('lex-github')
+      expect(result[:description]).to eq('GitHub integration provider')
       expect(result[:version]).to eq('0.3.10')
-      expect(result[:const_path]).to eq('Legion::Extensions::Ollama')
-      expect(result[:segments]).to eq(['ollama'])
-      expect(result[:lex_name]).to eq('ollama')
-      expect(result[:lex_slug]).to eq('ollama')
+      expect(result[:const_path]).to eq('Legion::Extensions::Github')
+      expect(result[:segments]).to eq(['github'])
+      expect(result[:lex_name]).to eq('github')
+      expect(result[:lex_slug]).to eq('github')
 
       # Lifecycle
       expect(result[:state]).to eq(:running)
@@ -235,11 +235,11 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       expect(result[:phase]).to eq(1)
 
       # Contents
-      expect(result[:runners]).to eq(%w[ollama/inference ollama/embedding])
+      expect(result[:runners]).to eq(%w[github/repos github/pulls])
       expect(result[:actors]).to eq([:subscription])
-      expect(result[:tools]).to eq(['legion.ollama_chat'])
+      expect(result[:tools]).to eq(['legion.github_repos_list'])
       expect(result[:absorbers]).to eq([])
-      expect(result[:routes]).to eq(['/api/ollama'])
+      expect(result[:routes]).to eq(['/api/github'])
 
       # Gem metadata
       expect(result[:gem_dir]).to eq('/path/to/gem')
@@ -308,7 +308,7 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
     end
 
     it 'preserves explicit segments when provided' do
-      result = described_class.normalize_extension('lex-ollama', { segments: %w[custom path] })
+      result = described_class.normalize_extension('lex-github', { segments: %w[custom path] })
       expect(result[:segments]).to eq(%w[custom path])
     end
 

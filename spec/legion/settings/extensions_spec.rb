@@ -11,38 +11,38 @@ RSpec.describe Legion::Settings::Extensions do
   # Helpers
   # ----------------------------------------------------------------
 
-  def sample_extension(name = 'lex-ollama', **overrides)
+  def sample_extension(name = 'lex-github', **overrides)
     {
-      version:    '0.3.10',
+      version:    '1.2.0',
       state:      :discovered,
-      category:   :ai,
+      category:   :service,
       tier:       1,
       phase:      1,
-      const_path: 'Legion::Extensions::Ollama',
-      runners:    ['ollama/inference', 'ollama/embedding']
+      const_path: 'Legion::Extensions::Github',
+      runners:    ['github/repos', 'github/pulls']
     }.merge(overrides).merge(name: name)
   end
 
-  def sample_runner(name = 'ollama/inference/chat', **overrides)
+  def sample_runner(name = 'github/repos/list', **overrides)
     {
-      extension:     'lex-ollama',
-      runner_module: 'Legion::Extensions::Ollama::Runners::Inference',
-      function:      'chat',
+      extension:     'lex-github',
+      runner_module: 'Legion::Extensions::Github::Runners::Repos',
+      function:      'list',
       exposed:       true
     }.merge(overrides).merge(name: name)
   end
 
-  def sample_tool(name = 'legion.ollama_inference_chat', **overrides)
+  def sample_tool(name = 'legion.github_repos_list', **overrides)
     {
-      extension:    'lex-ollama',
-      runner:       'ollama/inference',
-      function:     'chat',
-      description:  'Chat with Ollama models',
+      extension:    'lex-github',
+      runner:       'github/repos',
+      function:     'list',
+      description:  'List GitHub repositories',
       deferred:     false,
       sticky:       true,
       mcp_tier:     0,
-      mcp_category: 'inference',
-      tags:         %w[ai inference],
+      mcp_category: 'service',
+      tags:         %w[scm service],
       source:       :discovery
     }.merge(overrides).merge(name: name)
   end
@@ -53,19 +53,19 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe 'extension registration' do
     it 'registers an extension and returns a frozen entry' do
-      result = registry.register_extension('lex-ollama', sample_extension)
+      result = registry.register_extension('lex-github', sample_extension)
       expect(result).to be_frozen
-      expect(result[:name]).to eq('lex-ollama')
+      expect(result[:name]).to eq('lex-github')
       expect(result[:state]).to eq(:discovered)
       expect(result[:registered_at]).to be_a(Time)
     end
 
     it 'finds a registered extension by name' do
-      registry.register_extension('lex-ollama', sample_extension)
-      found = registry.find_extension('lex-ollama')
+      registry.register_extension('lex-github', sample_extension)
+      found = registry.find_extension('lex-github')
       expect(found).not_to be_nil
-      expect(found[:name]).to eq('lex-ollama')
-      expect(found[:category]).to eq(:ai)
+      expect(found[:name]).to eq('lex-github')
+      expect(found[:category]).to eq(:service)
     end
 
     it 'returns nil for an unknown extension' do
@@ -73,25 +73,25 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'lists all registered extensions' do
-      registry.register_extension('lex-ollama', sample_extension)
+      registry.register_extension('lex-github', sample_extension)
       registry.register_extension('lex-bedrock', sample_extension('lex-bedrock', category: :ai))
       exts = registry.extensions
       expect(exts.size).to eq(2)
-      expect(exts.map { |e| e[:name] }).to contain_exactly('lex-ollama', 'lex-bedrock')
+      expect(exts.map { |e| e[:name] }).to contain_exactly('lex-github', 'lex-bedrock')
     end
 
     it 'overwrites on duplicate registration without duplicating' do
-      registry.register_extension('lex-ollama', sample_extension(state: :discovered))
-      registry.register_extension('lex-ollama', sample_extension(state: :loaded))
+      registry.register_extension('lex-github', sample_extension(state: :discovered))
+      registry.register_extension('lex-github', sample_extension(state: :loaded))
       exts = registry.extensions
       expect(exts.size).to eq(1)
       expect(exts.first[:state]).to eq(:loaded)
     end
 
     it 'accepts symbol names and normalizes to string' do
-      registry.register_extension(:lex_ollama, sample_extension)
-      expect(registry.find_extension('lex_ollama')).not_to be_nil
-      expect(registry.find_extension(:lex_ollama)).not_to be_nil
+      registry.register_extension(:lex_github, sample_extension)
+      expect(registry.find_extension('lex_github')).not_to be_nil
+      expect(registry.find_extension(:lex_github)).not_to be_nil
     end
   end
 
@@ -101,17 +101,17 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe 'runner registration' do
     it 'registers a runner and returns a frozen entry' do
-      result = registry.register_runner('ollama/inference/chat', sample_runner)
+      result = registry.register_runner('github/repos/list', sample_runner)
       expect(result).to be_frozen
-      expect(result[:name]).to eq('ollama/inference/chat')
-      expect(result[:extension]).to eq('lex-ollama')
+      expect(result[:name]).to eq('github/repos/list')
+      expect(result[:extension]).to eq('lex-github')
     end
 
     it 'finds a registered runner by name' do
-      registry.register_runner('ollama/inference/chat', sample_runner)
-      found = registry.find_runner('ollama/inference/chat')
+      registry.register_runner('github/repos/list', sample_runner)
+      found = registry.find_runner('github/repos/list')
       expect(found).not_to be_nil
-      expect(found[:function]).to eq('chat')
+      expect(found[:function]).to eq('list')
     end
 
     it 'returns nil for an unknown runner' do
@@ -119,17 +119,17 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'lists all registered runners' do
-      registry.register_runner('ollama/inference/chat', sample_runner)
-      registry.register_runner('ollama/embedding/embed', sample_runner('ollama/embedding/embed', function: 'embed'))
+      registry.register_runner('github/repos/list', sample_runner)
+      registry.register_runner('github/pulls/create', sample_runner('github/pulls/create', function: 'embed'))
       rnrs = registry.runners
       expect(rnrs.size).to eq(2)
     end
 
     it 'overwrites on duplicate runner registration' do
-      registry.register_runner('ollama/inference/chat', sample_runner(exposed: true))
-      registry.register_runner('ollama/inference/chat', sample_runner(exposed: false))
+      registry.register_runner('github/repos/list', sample_runner(exposed: true))
+      registry.register_runner('github/repos/list', sample_runner(exposed: false))
       expect(registry.runners.size).to eq(1)
-      expect(registry.find_runner('ollama/inference/chat')[:exposed]).to be false
+      expect(registry.find_runner('github/repos/list')[:exposed]).to be false
     end
   end
 
@@ -139,17 +139,17 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe 'tool registration' do
     it 'registers a tool and returns a frozen entry' do
-      result = registry.register_tool('legion.ollama_inference_chat', sample_tool)
+      result = registry.register_tool('legion.github_repos_list', sample_tool)
       expect(result).to be_frozen
-      expect(result[:name]).to eq('legion.ollama_inference_chat')
+      expect(result[:name]).to eq('legion.github_repos_list')
       expect(result[:deferred]).to be false
     end
 
     it 'finds a registered tool by name' do
-      registry.register_tool('legion.ollama_inference_chat', sample_tool)
-      found = registry.find_tool('legion.ollama_inference_chat')
+      registry.register_tool('legion.github_repos_list', sample_tool)
+      found = registry.find_tool('legion.github_repos_list')
       expect(found).not_to be_nil
-      expect(found[:description]).to eq('Chat with Ollama models')
+      expect(found[:description]).to eq('List GitHub repositories')
     end
 
     it 'returns nil for an unknown tool' do
@@ -157,17 +157,17 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'lists all registered tools' do
-      registry.register_tool('legion.ollama_inference_chat', sample_tool)
+      registry.register_tool('legion.github_repos_list', sample_tool)
       registry.register_tool('legion.bedrock_invoke', sample_tool('legion.bedrock_invoke', extension: 'lex-bedrock'))
       tls = registry.tools
       expect(tls.size).to eq(2)
     end
 
     it 'overwrites on duplicate tool registration' do
-      registry.register_tool('legion.ollama_inference_chat', sample_tool(deferred: false))
-      registry.register_tool('legion.ollama_inference_chat', sample_tool(deferred: true))
+      registry.register_tool('legion.github_repos_list', sample_tool(deferred: false))
+      registry.register_tool('legion.github_repos_list', sample_tool(deferred: true))
       expect(registry.tools.size).to eq(1)
-      expect(registry.find_tool('legion.ollama_inference_chat')[:deferred]).to be true
+      expect(registry.find_tool('legion.github_repos_list')[:deferred]).to be true
     end
   end
 
@@ -176,19 +176,19 @@ RSpec.describe Legion::Settings::Extensions do
   # ================================================================
 
   describe '#transition' do
-    before { registry.register_extension('lex-ollama', sample_extension(state: :discovered)) }
+    before { registry.register_extension('lex-github', sample_extension(state: :discovered)) }
 
     it 'updates the extension state' do
-      registry.transition('lex-ollama', :loaded)
-      ext = registry.find_extension('lex-ollama')
+      registry.transition('lex-github', :loaded)
+      ext = registry.find_extension('lex-github')
       expect(ext[:state]).to eq(:loaded)
       expect(ext[:transitioned_at]).to be_a(Time)
     end
 
     it 'merges extra metadata on transition' do
-      registry.transition('lex-ollama', :loaded, runners: %w[ollama/inference ollama/embedding])
-      ext = registry.find_extension('lex-ollama')
-      expect(ext[:runners]).to eq(%w[ollama/inference ollama/embedding])
+      registry.transition('lex-github', :loaded, runners: %w[github/repos github/pulls])
+      ext = registry.find_extension('lex-github')
+      expect(ext[:runners]).to eq(%w[github/repos github/pulls])
     end
 
     it 'returns nil for unknown extension' do
@@ -196,11 +196,11 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'supports the full lifecycle: discovered -> loaded -> running -> stopped' do
-      registry.transition('lex-ollama', :loaded)
-      registry.transition('lex-ollama', :running)
-      expect(registry.find_extension('lex-ollama')[:state]).to eq(:running)
-      registry.transition('lex-ollama', :stopped)
-      expect(registry.find_extension('lex-ollama')[:state]).to eq(:stopped)
+      registry.transition('lex-github', :loaded)
+      registry.transition('lex-github', :running)
+      expect(registry.find_extension('lex-github')[:state]).to eq(:running)
+      registry.transition('lex-github', :stopped)
+      expect(registry.find_extension('lex-github')[:state]).to eq(:stopped)
     end
   end
 
@@ -210,17 +210,17 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe '#filter_tools' do
     before do
-      registry.register_extension('lex-ollama', sample_extension(state: :running))
+      registry.register_extension('lex-github', sample_extension(state: :running))
       registry.register_extension('lex-bedrock', sample_extension('lex-bedrock', state: :loaded, category: :ai))
 
-      registry.register_tool('legion.ollama_chat', sample_tool('legion.ollama_chat',
-                                                               extension: 'lex-ollama', deferred: false,
-                                                               sticky: true, mcp_tier: 0, mcp_category: 'inference',
-                                                               tags: %w[ai inference], source: :discovery))
-      registry.register_tool('legion.ollama_embed', sample_tool('legion.ollama_embed',
-                                                                extension: 'lex-ollama', deferred: true,
-                                                                sticky: false, mcp_tier: 1, mcp_category: 'embedding',
-                                                                tags: %w[ai embedding], source: :discovery))
+      registry.register_tool('legion.github_repos_list', sample_tool('legion.github_repos_list',
+                                                                     extension: 'lex-github', deferred: false,
+                                                                     sticky: true, mcp_tier: 0, mcp_category: 'inference',
+                                                                     tags: %w[ai inference], source: :discovery))
+      registry.register_tool('legion.github_pulls_create', sample_tool('legion.github_pulls_create',
+                                                                       extension: 'lex-github', deferred: true,
+                                                                       sticky: false, mcp_tier: 1, mcp_category: 'embedding',
+                                                                       tags: %w[ai embedding], source: :discovery))
       registry.register_tool('legion.bedrock_invoke', sample_tool('legion.bedrock_invoke',
                                                                   extension: 'lex-bedrock', deferred: false,
                                                                   sticky: false, mcp_tier: 0, mcp_category: 'inference',
@@ -232,21 +232,21 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'filters by extension' do
-      result = registry.filter_tools(extension: 'lex-ollama')
+      result = registry.filter_tools(extension: 'lex-github')
       expect(result.size).to eq(2)
-      expect(result.map { |t| t[:name] }).to all(start_with('legion.ollama'))
+      expect(result.map { |t| t[:name] }).to all(start_with('legion.github'))
     end
 
     it 'filters by deferred' do
       result = registry.filter_tools(deferred: true)
       expect(result.size).to eq(1)
-      expect(result.first[:name]).to eq('legion.ollama_embed')
+      expect(result.first[:name]).to eq('legion.github_pulls_create')
     end
 
     it 'filters by sticky' do
       result = registry.filter_tools(sticky: true)
       expect(result.size).to eq(1)
-      expect(result.first[:name]).to eq('legion.ollama_chat')
+      expect(result.first[:name]).to eq('legion.github_repos_list')
     end
 
     it 'filters by mcp_tier' do
@@ -262,7 +262,7 @@ RSpec.describe Legion::Settings::Extensions do
     it 'filters by tags (match any)' do
       result = registry.filter_tools(tags: ['embedding'])
       expect(result.size).to eq(1)
-      expect(result.first[:name]).to eq('legion.ollama_embed')
+      expect(result.first[:name]).to eq('legion.github_pulls_create')
     end
 
     it 'filters by tags with multiple matches' do
@@ -279,17 +279,17 @@ RSpec.describe Legion::Settings::Extensions do
     it 'filters by extension state' do
       result = registry.filter_tools(state: :running)
       expect(result.size).to eq(2)
-      expect(result.map { |t| t[:extension] }).to all(eq('lex-ollama'))
+      expect(result.map { |t| t[:extension] }).to all(eq('lex-github'))
     end
 
     it 'combines multiple criteria' do
-      result = registry.filter_tools(extension: 'lex-ollama', deferred: false)
+      result = registry.filter_tools(extension: 'lex-github', deferred: false)
       expect(result.size).to eq(1)
-      expect(result.first[:name]).to eq('legion.ollama_chat')
+      expect(result.first[:name]).to eq('legion.github_repos_list')
     end
 
     it 'returns frozen results' do
-      result = registry.filter_tools(extension: 'lex-ollama')
+      result = registry.filter_tools(extension: 'lex-github')
       expect(result).to be_frozen
       expect(result.first).to be_frozen
     end
@@ -301,7 +301,7 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe '#filter_extensions' do
     before do
-      registry.register_extension('lex-ollama', sample_extension(state: :running, category: :ai, phase: 1))
+      registry.register_extension('lex-github', sample_extension(state: :running, category: :ai, phase: 1))
       registry.register_extension('lex-node', sample_extension('lex-node', state: :running, category: :core, phase: 0))
       registry.register_extension('lex-broken', sample_extension('lex-broken', state: :stopped, category: :ai, phase: 1))
     end
@@ -325,7 +325,7 @@ RSpec.describe Legion::Settings::Extensions do
     it 'combines multiple criteria' do
       result = registry.filter_extensions(state: :running, category: :ai)
       expect(result.size).to eq(1)
-      expect(result.first[:name]).to eq('lex-ollama')
+      expect(result.first[:name]).to eq('lex-github')
     end
   end
 
@@ -335,37 +335,37 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe '#unregister_extension' do
     before do
-      registry.register_extension('lex-ollama', sample_extension)
-      registry.register_runner('ollama/inference/chat', sample_runner(extension: 'lex-ollama'))
-      registry.register_runner('ollama/embedding/embed', sample_runner('ollama/embedding/embed', extension: 'lex-ollama'))
+      registry.register_extension('lex-github', sample_extension)
+      registry.register_runner('github/repos/list', sample_runner(extension: 'lex-github'))
+      registry.register_runner('github/pulls/create', sample_runner('github/pulls/create', extension: 'lex-github'))
       registry.register_runner('bedrock/invoke', sample_runner('bedrock/invoke', extension: 'lex-bedrock'))
-      registry.register_tool('legion.ollama_chat', sample_tool('legion.ollama_chat', extension: 'lex-ollama'))
-      registry.register_tool('legion.ollama_embed', sample_tool('legion.ollama_embed', extension: 'lex-ollama'))
+      registry.register_tool('legion.github_repos_list', sample_tool('legion.github_repos_list', extension: 'lex-github'))
+      registry.register_tool('legion.github_pulls_create', sample_tool('legion.github_pulls_create', extension: 'lex-github'))
       registry.register_tool('legion.bedrock_invoke', sample_tool('legion.bedrock_invoke', extension: 'lex-bedrock'))
     end
 
     it 'removes the extension' do
-      registry.unregister_extension('lex-ollama')
-      expect(registry.find_extension('lex-ollama')).to be_nil
+      registry.unregister_extension('lex-github')
+      expect(registry.find_extension('lex-github')).to be_nil
     end
 
     it 'cascade-removes associated runners' do
-      registry.unregister_extension('lex-ollama')
+      registry.unregister_extension('lex-github')
       expect(registry.runners.size).to eq(1)
-      expect(registry.find_runner('ollama/inference/chat')).to be_nil
+      expect(registry.find_runner('github/repos/list')).to be_nil
       expect(registry.find_runner('bedrock/invoke')).not_to be_nil
     end
 
     it 'cascade-removes associated tools' do
-      registry.unregister_extension('lex-ollama')
+      registry.unregister_extension('lex-github')
       expect(registry.tools.size).to eq(1)
-      expect(registry.find_tool('legion.ollama_chat')).to be_nil
+      expect(registry.find_tool('legion.github_repos_list')).to be_nil
       expect(registry.find_tool('legion.bedrock_invoke')).not_to be_nil
     end
 
     it 'returns the removed extension entry' do
-      removed = registry.unregister_extension('lex-ollama')
-      expect(removed[:name]).to eq('lex-ollama')
+      removed = registry.unregister_extension('lex-github')
+      expect(removed[:name]).to eq('lex-github')
     end
 
     it 'returns nil for unknown extension' do
@@ -375,11 +375,11 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe '#unregister_tool' do
     it 'removes a single tool' do
-      registry.register_tool('legion.ollama_chat', sample_tool('legion.ollama_chat'))
-      registry.register_tool('legion.ollama_embed', sample_tool('legion.ollama_embed'))
-      registry.unregister_tool('legion.ollama_chat')
+      registry.register_tool('legion.github_repos_list', sample_tool('legion.github_repos_list'))
+      registry.register_tool('legion.github_pulls_create', sample_tool('legion.github_pulls_create'))
+      registry.unregister_tool('legion.github_repos_list')
       expect(registry.tools.size).to eq(1)
-      expect(registry.find_tool('legion.ollama_chat')).to be_nil
+      expect(registry.find_tool('legion.github_repos_list')).to be_nil
     end
 
     it 'returns nil for unknown tool' do
@@ -393,9 +393,9 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe '#reset!' do
     it 'clears all registries' do
-      registry.register_extension('lex-ollama', sample_extension)
-      registry.register_runner('ollama/inference/chat', sample_runner)
-      registry.register_tool('legion.ollama_chat', sample_tool)
+      registry.register_extension('lex-github', sample_extension)
+      registry.register_runner('github/repos/list', sample_runner)
+      registry.register_tool('legion.github_repos_list', sample_tool)
 
       registry.reset!
 
@@ -411,9 +411,9 @@ RSpec.describe Legion::Settings::Extensions do
 
   describe 'frozen return values' do
     before do
-      registry.register_extension('lex-ollama', sample_extension)
-      registry.register_runner('ollama/inference/chat', sample_runner)
-      registry.register_tool('legion.ollama_chat', sample_tool)
+      registry.register_extension('lex-github', sample_extension)
+      registry.register_runner('github/repos/list', sample_runner)
+      registry.register_tool('legion.github_repos_list', sample_tool)
     end
 
     it 'extensions returns a frozen array of frozen hashes' do
@@ -437,29 +437,29 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'find_extension returns a frozen hash' do
-      found = registry.find_extension('lex-ollama')
+      found = registry.find_extension('lex-github')
       expect(found).to be_frozen
       expect { found[:name] = 'hacked' }.to raise_error(FrozenError)
     end
 
     it 'find_runner returns a frozen hash' do
-      found = registry.find_runner('ollama/inference/chat')
+      found = registry.find_runner('github/repos/list')
       expect(found).to be_frozen
     end
 
     it 'find_tool returns a frozen hash' do
-      found = registry.find_tool('legion.ollama_chat')
+      found = registry.find_tool('legion.github_repos_list')
       expect(found).to be_frozen
     end
 
     it 'mutating a returned hash does not affect the registry' do
       # Get the tool, verify frozen
-      found = registry.find_tool('legion.ollama_chat')
-      expect(found[:description]).to eq('Chat with Ollama models')
+      found = registry.find_tool('legion.github_repos_list')
+      expect(found[:description]).to eq('List GitHub repositories')
 
       # Re-fetch and verify original value is intact
-      refetched = registry.find_tool('legion.ollama_chat')
-      expect(refetched[:description]).to eq('Chat with Ollama models')
+      refetched = registry.find_tool('legion.github_repos_list')
+      expect(refetched[:description]).to eq('List GitHub repositories')
     end
   end
 
@@ -505,16 +505,16 @@ RSpec.describe Legion::Settings::Extensions do
     end
 
     it 'handles concurrent transitions' do
-      registry.register_extension('lex-ollama', sample_extension(state: :discovered))
+      registry.register_extension('lex-github', sample_extension(state: :discovered))
       threads = 10.times.map do |i|
         Thread.new do
           state = %i[discovered loaded running stopped][i % 4]
-          registry.transition('lex-ollama', state)
+          registry.transition('lex-github', state)
         end
       end
       threads.each(&:value)
 
-      ext = registry.find_extension('lex-ollama')
+      ext = registry.find_extension('lex-github')
       expect(%i[discovered loaded running stopped]).to include(ext[:state])
     end
   end

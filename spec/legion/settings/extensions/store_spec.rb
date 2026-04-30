@@ -7,36 +7,36 @@ RSpec.describe Legion::Settings::Extensions::Store do
 
   describe '#register' do
     it 'stores an entry and returns a frozen copy' do
-      result = store.register('lex-ollama', version: '0.3.10')
+      result = store.register('lex-github', version: '0.3.10')
       expect(result).to be_frozen
-      expect(result[:name]).to eq('lex-ollama')
+      expect(result[:name]).to eq('lex-github')
       expect(result[:version]).to eq('0.3.10')
       expect(result[:registered_at]).to be_a(Time)
     end
 
     it 'canonical fields override caller metadata' do
-      result = store.register('lex-ollama', name: 'should-be-overridden')
-      expect(result[:name]).to eq('lex-ollama')
+      result = store.register('lex-github', name: 'should-be-overridden')
+      expect(result[:name]).to eq('lex-github')
     end
 
     it 'overwrites on duplicate registration' do
-      store.register('lex-ollama', state: :discovered)
-      store.register('lex-ollama', state: :loaded)
+      store.register('lex-github', state: :discovered)
+      store.register('lex-github', state: :loaded)
       expect(store.all.size).to eq(1)
-      expect(store.find('lex-ollama')[:state]).to eq(:loaded)
+      expect(store.find('lex-github')[:state]).to eq(:loaded)
     end
 
     it 'normalizes symbol keys to strings' do
-      store.register(:lex_ollama, tier: 1)
-      expect(store.find('lex_ollama')).not_to be_nil
-      expect(store.find(:lex_ollama)).not_to be_nil
+      store.register(:lex_github, tier: 1)
+      expect(store.find('lex_github')).not_to be_nil
+      expect(store.find(:lex_github)).not_to be_nil
     end
   end
 
   describe '#find' do
     it 'returns a frozen duplicate of the entry' do
-      store.register('lex-ollama', state: :running)
-      found = store.find('lex-ollama')
+      store.register('lex-github', state: :running)
+      found = store.find('lex-github')
       expect(found).to be_frozen
       expect(found[:state]).to eq(:running)
     end
@@ -63,9 +63,9 @@ RSpec.describe Legion::Settings::Extensions::Store do
 
   describe '#update' do
     it 'merges new fields into an existing entry' do
-      store.register('lex-ollama', state: :discovered)
-      store.update('lex-ollama', state: :loaded, runners: %w[a b])
-      found = store.find('lex-ollama')
+      store.register('lex-github', state: :discovered)
+      store.update('lex-github', state: :loaded, runners: %w[a b])
+      found = store.find('lex-github')
       expect(found[:state]).to eq(:loaded)
       expect(found[:runners]).to eq(%w[a b])
       expect(found[:updated_at]).to be_a(Time)
@@ -76,15 +76,15 @@ RSpec.describe Legion::Settings::Extensions::Store do
     end
 
     it 'preserves existing fields not in the update' do
-      store.register('lex-ollama', state: :discovered, version: '1.0')
-      store.update('lex-ollama', state: :loaded)
-      expect(store.find('lex-ollama')[:version]).to eq('1.0')
+      store.register('lex-github', state: :discovered, version: '1.0')
+      store.update('lex-github', state: :loaded)
+      expect(store.find('lex-github')[:version]).to eq('1.0')
     end
   end
 
   describe '#filter' do
     before do
-      store.register('lex-ollama', tier: 1, provider: 'ollama')
+      store.register('lex-github', tier: 1, provider: 'github')
       store.register('lex-bedrock', tier: 1, provider: 'aws')
       store.register('lex-claude', tier: 2, provider: 'anthropic')
     end
@@ -93,7 +93,7 @@ RSpec.describe Legion::Settings::Extensions::Store do
       result = store.filter { |entry| entry[:tier] == 1 }
       expect(result.size).to eq(2)
       names = result.map { |e| e[:name] }
-      expect(names).to contain_exactly('lex-ollama', 'lex-bedrock')
+      expect(names).to contain_exactly('lex-github', 'lex-bedrock')
     end
 
     it 'returns a frozen result' do
@@ -111,10 +111,10 @@ RSpec.describe Legion::Settings::Extensions::Store do
 
   describe '#delete' do
     it 'removes the entry and returns it' do
-      store.register('lex-ollama', state: :running)
-      removed = store.delete('lex-ollama')
-      expect(removed[:name]).to eq('lex-ollama')
-      expect(store.find('lex-ollama')).to be_nil
+      store.register('lex-github', state: :running)
+      removed = store.delete('lex-github')
+      expect(removed[:name]).to eq('lex-github')
+      expect(store.find('lex-github')).to be_nil
     end
 
     it 'returns nil for unknown entries' do
@@ -124,10 +124,10 @@ RSpec.describe Legion::Settings::Extensions::Store do
 
   describe '#delete_where' do
     it 'removes entries matching the block' do
-      store.register('a', extension: 'lex-ollama')
-      store.register('b', extension: 'lex-ollama')
+      store.register('a', extension: 'lex-github')
+      store.register('b', extension: 'lex-github')
       store.register('c', extension: 'lex-bedrock')
-      store.delete_where { |v| v[:extension] == 'lex-ollama' }
+      store.delete_where { |v| v[:extension] == 'lex-github' }
       expect(store.size).to eq(1)
       expect(store.find('c')).not_to be_nil
     end
