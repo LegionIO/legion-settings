@@ -74,14 +74,25 @@ module Legion
         if defined?(Legion::Logging::Settings) && Legion::Logging::Settings.respond_to?(:default)
           Legion::Logging::Settings.default
         else
-          { level: :info }
+          Concurrent::Hash[level: :info]
+        end
+      end
+
+      # Same pattern for legion-json — no settings today, but the hook
+      # is here so future JSON config (parse_mode, symbolize_keys, etc.)
+      # gets picked up without hardcoding in the Loader.
+      def json_defaults
+        if defined?(Legion::JSON::Settings) && Legion::JSON::Settings.respond_to?(:default)
+          Legion::JSON::Settings.default
+        else
+          Concurrent::Hash.new
         end
       end
 
       # Absorber defaults belong to LegionIO (not a separate gem).
       # LegionIO should register these via merge_settings during boot.
       def absorbers_defaults
-        {}
+        Concurrent::Hash.new
       end
 
       def default_settings
@@ -118,6 +129,7 @@ module Legion
           reloading:                  false,
           auto_install_missing_lex:   true,
           default_extension_settings: {},
+          json:                       json_defaults,
           logging:                    logging_defaults,
           absorbers:                  absorbers_defaults,
           transport:                  { connected: false },
