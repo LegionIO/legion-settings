@@ -136,4 +136,34 @@ RSpec.describe Legion::Settings::Validators::Tls do
       end
     end
   end
+
+  describe '.dig_tls' do
+    it 'returns symbolized tls hash when present' do
+      settings = { transport: { tls: { 'enabled' => true, 'verify' => 'peer' } } }
+      result = described_class.send(:dig_tls, settings, :transport)
+      expect(result).to eq({ enabled: true, verify: 'peer' })
+    end
+
+    it 'returns empty hash when component has no tls key' do
+      settings = { transport: {} }
+      result = described_class.send(:dig_tls, settings, :transport)
+      expect(result).to eq({})
+    end
+
+    it 'returns empty hash when component does not exist' do
+      result = described_class.send(:dig_tls, {}, :transport)
+      expect(result).to eq({})
+    end
+
+    it 'returns empty hash when settings is not diggable' do
+      result = described_class.send(:dig_tls, nil, :transport)
+      expect(result).to eq({})
+    end
+
+    it 'returns empty hash when component value breaks symbolize_keys' do
+      settings = { transport: { tls: 'not_a_hash' } }
+      result = described_class.send(:dig_tls, settings, :transport)
+      expect(result).to eq({})
+    end
+  end
 end

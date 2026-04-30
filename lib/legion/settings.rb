@@ -10,6 +10,8 @@ require 'legion/settings/validation_error'
 require 'legion/settings/helper'
 require 'legion/settings/overlay'
 require 'legion/settings/project_env'
+require 'legion/settings/extensions'
+require 'legion/settings/deep_merge'
 
 module Legion
   module Settings
@@ -56,6 +58,10 @@ module Legion
       def [](key)
         logger.info('Legion::Settings was not loaded, auto-loading now') if @loader.nil?
         load if @loader.nil?
+
+        # Fast path: skip overlay resolution when no overlay is active
+        return @loader[key] unless Overlay.active?
+
         overlay_val = Overlay.overlay_for(key)
         base_val = @loader[key]
         if overlay_val.is_a?(Hash) && base_val.is_a?(Hash)
@@ -97,7 +103,22 @@ module Legion
         thing[key.to_sym] = hash
         @loader.load_module_settings(thing)
         schema.register(key.to_sym, hash)
-        validate_module_on_merge(key.to_sym)
+        # Validation deferred to validate! — don't validate on every merge during boot
+      end
+
+      # Clean hook for legion-* core libraries to register their defaults.
+      # Called at the bottom of the library's settings.rb file.
+      # Library defaults fill in gaps; user JSON config wins.
+      # Idempotent — calling twice with the same key is safe.
+      #
+      # Usage in legion-transport/lib/legion/transport/settings.rb:
+      #   Legion::Settings.register_library(:transport, Legion::Transport::Settings.default)
+      def register_library(key, defaults)
+        sym = key.to_sym
+        return if @registered_libraries&.include?(sym)
+
+        merge_settings(sym, defaults)
+        (@registered_libraries ||= []) << sym
       end
 
       def define_schema(key, overrides)
@@ -292,6 +313,7 @@ module Legion
         @loaded = nil
         @schema = nil
         @cross_validations = nil
+        @registered_libraries = nil
         @reload_callbacks = nil
         @reload_mutex = nil
         @reload_flag = nil
@@ -311,16 +333,7 @@ module Legion
       end
 
       def deep_merge_for_overlay(base, overlay)
-        result = base.dup
-        overlay.each do |key, value|
-          existing = result[key]
-          result[key] = if existing.is_a?(Hash) && value.is_a?(Hash)
-                          deep_merge_for_overlay(existing, value)
-                        else
-                          value
-                        end
-        end
-        result
+        DeepMerge.deep_merge(base, overlay)
       end
 
       def ensure_loader

@@ -52,13 +52,29 @@ RSpec.describe Legion::Settings::Loader do
       expect(dns[:nameservers]).to be_an(Array)
     end
 
-    it 'has an fqdn string or nil' do
-      expect(dns[:fqdn]).to be_a(String).or be_nil
+    it 'has fqdn nil initially (lazy-resolved via resolve_fqdn!)' do
+      expect(dns[:fqdn]).to be_nil
     end
 
     it 'has a bootstrap hash' do
       expect(dns[:bootstrap]).to be_a(Hash)
       expect(dns[:bootstrap][:enabled]).to eq(true)
+    end
+  end
+
+  describe '#resolve_fqdn!' do
+    it 'lazily resolves the FQDN (dns.fqdn starts nil)' do
+      expect(loader.settings[:dns][:fqdn]).to be_nil
+      result = loader.resolve_fqdn!
+      # After resolve, it is either a string or nil depending on DNS
+      expect(result).to be_a(String).or be_nil
+    end
+
+    it 'caches the result on subsequent calls' do
+      loader.resolve_fqdn!
+      first = loader.settings[:dns][:fqdn]
+      loader.resolve_fqdn!
+      expect(loader.settings[:dns][:fqdn]).to eq(first)
     end
   end
 
@@ -73,46 +89,30 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:client][:ready]).to eq(false)
     end
 
-    it 'has cluster settings' do
-      expect(defaults[:cluster]).to eq({ public_keys: {} })
+    it 'has cluster as empty Concurrent::Hash stub' do
+      expect(defaults[:cluster]).to be_a(Concurrent::Hash)
     end
 
-    it 'has crypt settings' do
-      expect(defaults[:crypt]).to be_a(Hash)
-      expect(defaults[:crypt][:cluster_secret]).to be_nil
-      expect(defaults[:crypt][:vault]).to eq({ connected: false })
+    it 'has crypt as empty Concurrent::Hash stub (module self-registers)' do
+      expect(defaults[:crypt]).to be_a(Concurrent::Hash)
     end
 
-    it 'has cache settings' do
-      expect(defaults[:cache]).to be_a(Hash)
-      expect(defaults[:cache][:enabled]).to eq(true)
-      expect(defaults[:cache][:connected]).to eq(false)
-      expect(defaults[:cache][:driver]).to eq('dalli')
+    it 'has cache as empty Concurrent::Hash stub (module self-registers)' do
+      expect(defaults[:cache]).to be_a(Concurrent::Hash)
     end
 
     it 'has extensions hash' do
       expect(defaults[:extensions]).to be_a(Hash)
     end
 
-    it 'has logging settings with all structured keys' do
-      logging = defaults[:logging]
-      expect(logging).to be_a(Hash)
-      expect(logging[:level]).to eq('info')
-      expect(logging[:format]).to eq('text')
-      expect(logging[:async]).to eq(true)
-      expect(logging[:include_pid]).to eq(false)
-      expect(logging[:log_stdout]).to eq(true)
-      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
-      expect(logging[:trace]).to eq(true)
-      expect(logging[:transport]).to be_a(Hash)
-      expect(logging[:transport][:enabled]).to eq(true)
-      expect(logging[:transport][:forward_logs]).to eq(true)
-      expect(logging[:transport][:forward_exceptions]).to eq(true)
+    it 'has logging with defaults from Legion::Logging::Settings' do
+      expect(defaults[:logging]).to be_a(Hash)
+      expect(defaults[:logging][:level]).to eq(:info)
     end
 
-    it 'has transport and data as not connected' do
-      expect(defaults[:transport]).to eq({ connected: false })
-      expect(defaults[:data]).to eq({ connected: false })
+    it 'has transport and data as empty Concurrent::Hash stubs' do
+      expect(defaults[:transport]).to be_a(Concurrent::Hash)
+      expect(defaults[:data]).to be_a(Concurrent::Hash)
     end
 
     it 'has dns settings' do
@@ -127,95 +127,28 @@ RSpec.describe Legion::Settings::Loader do
     end
   end
 
-  describe '#logging_defaults' do
-    subject(:logging) { loader.logging_defaults }
-
-    it 'returns a hash' do
-      expect(logging).to be_a(Hash)
-    end
-
-    it 'defaults level to info' do
-      expect(logging[:level]).to eq('info')
-    end
-
-    it 'defaults format to text' do
-      expect(logging[:format]).to eq('text')
-    end
-
-    it 'defaults async to true' do
-      expect(logging[:async]).to eq(true)
-    end
-
-    it 'defaults include_pid to false' do
-      expect(logging[:include_pid]).to eq(false)
-    end
-
-    it 'defaults log_stdout to true' do
-      expect(logging[:log_stdout]).to eq(true)
-    end
-
-    it 'defaults log_file to ./legionio/logs/legion.log' do
-      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
-    end
-
-    it 'defaults trace to true' do
+  describe 'tier 1 defaults (gemspec dependencies)' do
+    it 'pulls logging defaults directly from Legion::Logging::Settings' do
+      logging = loader.to_hash[:logging]
+      expect(logging[:level]).to eq(:info)
       expect(logging[:trace]).to eq(true)
     end
 
-    it 'includes a transport sub-hash' do
-      expect(logging[:transport]).to be_a(Hash)
-    end
-
-    it 'defaults transport.enabled to true' do
-      expect(logging[:transport][:enabled]).to eq(true)
-    end
-
-    it 'defaults transport.forward_logs to true' do
-      expect(logging[:transport][:forward_logs]).to eq(true)
-    end
-
-    it 'defaults transport.forward_exceptions to true' do
-      expect(logging[:transport][:forward_exceptions]).to eq(true)
+    it 'does not hardcode logging keys that belong to legion-logging' do
+      logging = loader.to_hash[:logging]
+      expect(logging).not_to have_key(:format)
+      expect(logging).not_to have_key(:log_file)
+      expect(logging).not_to have_key(:async)
     end
   end
 
-  describe '#absorbers_defaults' do
-    subject(:absorbers) { loader.absorbers_defaults }
-
-    it 'returns a hash' do
-      expect(absorbers).to be_a(Hash)
-    end
-
-    it 'defaults enabled to true' do
-      expect(absorbers[:enabled]).to be true
-    end
-
-    it 'defaults max_depth to 5' do
-      expect(absorbers[:max_depth]).to eq(5)
-    end
-
-    it 'has a sources section' do
-      expect(absorbers[:sources]).to be_a(Hash)
-    end
-
-    it 'defaults sources.meetings.enabled to true' do
-      expect(absorbers[:sources][:meetings][:enabled]).to be true
-    end
-
-    it 'defaults sources.email_inbox.enabled to false' do
-      expect(absorbers[:sources][:email_inbox][:enabled]).to be false
-    end
-
-    it 'defaults sources.github.enabled to true' do
-      expect(absorbers[:sources][:github][:enabled]).to be true
-    end
-
-    it 'defaults sources.files.enabled to true' do
-      expect(absorbers[:sources][:files][:enabled]).to be true
-    end
-
-    it 'defaults sources.files.extensions to expected list' do
-      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
+  describe 'tier 2 stubs (self-registering libraries)' do
+    it 'starts with empty stubs for transport, cache, crypt, data, absorbers' do
+      defaults = loader.to_hash
+      %i[transport cache crypt data absorbers].each do |key|
+        expect(defaults[key]).to be_a(Hash)
+        expect(defaults[key]).to be_empty
+      end
     end
   end
 
@@ -254,7 +187,16 @@ RSpec.describe Legion::Settings::Loader do
     it 'preserves default settings not in the file' do
       loader.load_file(config_file)
       expect(loader[:logging]).to be_a(Hash)
-      expect(loader[:logging][:level]).to eq('info')
+      expect(loader[:logging][:level]).to eq(:info)
+    end
+
+    it 'strips UTF-8 BOM from config files' do
+      bom_file = File.join(assets_dir, 'bom_test.json')
+      File.write(bom_file, "\xEF\xBB\xBF{\"test_bom\": true}", encoding: 'ASCII-8BIT')
+      loader.load_file(bom_file)
+      expect(loader[:test_bom]).to be true
+    ensure
+      FileUtils.rm_f(bom_file)
     end
 
     it 'handles an empty file without error' do
@@ -324,7 +266,7 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'provides indifferent access with string keys' do
       expect(loader['logging']).to be_a(Hash)
-      expect(loader['logging'][:level]).to eq('info')
+      expect(loader['logging'][:level]).to eq(:info)
     end
   end
 
@@ -373,7 +315,7 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'preserves existing values (settings priority)' do
       loader.load_module_settings({ logging: { level: 'fatal' } })
-      expect(loader[:logging][:level]).to eq('info')
+      expect(loader[:logging][:level]).to eq(:info)
     end
 
     it 'preserves unrelated settings' do
@@ -533,13 +475,14 @@ RSpec.describe Legion::Settings::Loader do
         allow(bootstrap).to receive(:fetch).and_return(nil)
 
         loader.load_dns_bootstrap(cache_dir: cache_dir)
-        expect(loader[:transport]).to eq({ connected: false })
+        expect(loader[:transport]).to be_a(Hash)
       end
     end
   end
 
   describe 'deep merge behavior' do
     it 'merges nested hashes recursively' do
+      loader.load_module_settings({ crypt: { vault: { connected: false } } })
       loader.load_module_settings({ crypt: { vault: { token: 'abc' } } })
       expect(loader[:crypt][:vault][:token]).to eq('abc')
       expect(loader[:crypt][:vault][:connected]).to eq(false)
@@ -554,6 +497,148 @@ RSpec.describe Legion::Settings::Loader do
     it 'overwrites scalar values via load_file' do
       loader.load_file(config_file)
       expect(loader[:custom_key]).to eq('test_value')
+    end
+  end
+
+  describe 'hot path performance' do
+    it '[] does not trigger indifferent_access! rebuild' do
+      # Simulate the boot cascade: mark_dirty then read
+      loader.load_module_settings({ test_mod: { key: 'value' } })
+      # mark_dirty! was called — @indifferent_access is false
+      # [] should NOT call indifferent_access!, just read @settings directly
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader[:test_mod][:key]).to eq('value')
+    end
+
+    it 'dig does not trigger indifferent_access! rebuild' do
+      loader.load_module_settings({ nested: { deep: { val: 42 } } })
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader.dig(:nested, :deep, :val)).to eq(42)
+    end
+
+    it '[] supports string keys without full rebuild' do
+      loader.load_module_settings({ logging: { level: :info } })
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader['logging'][:level]).to eq(:info)
+    end
+
+    it 'to_hash still triggers indifferent_access! when dirty' do
+      loader.load_module_settings({ test_mod: { key: 'value' } })
+      # to_hash SHOULD trigger the rebuild — it's the serialization path
+      result = loader.to_hash
+      expect(result).to be_a(Hash)
+      expect(result[:test_mod][:key]).to eq('value')
+    end
+
+    it 'reads between mutations do not cascade' do
+      rebuild_count = 0
+      allow(loader).to receive(:indifferent_access!).and_wrap_original do |original|
+        rebuild_count += 1
+        original.call
+      end
+
+      # Simulate 10 modules registering, with reads between each
+      10.times do |i|
+        loader.load_module_settings({ "mod_#{i}": { val: i } })
+        loader[:logging] # read on hot path between mutations
+      end
+
+      # to_hash should trigger exactly 1 rebuild (when called)
+      loader.to_hash
+      expect(rebuild_count).to eq(1)
+    end
+  end
+
+  describe '#load_client_overrides' do
+    context 'when subscriptions is an Array' do
+      it 'appends the client name subscription and deduplicates' do
+        loader.settings[:client][:subscriptions] = ['existing']
+        loader.load_client_overrides
+        expect(loader.settings[:client][:subscriptions]).to include("client:#{loader.settings[:client][:name]}")
+        expect(loader.settings[:client][:subscriptions]).to include('existing')
+      end
+    end
+
+    context 'when subscriptions is not an Array' do
+      it 'logs a warning and does not crash' do
+        loader.settings[:client][:subscriptions] = 'not_an_array'
+        expect { loader.load_client_overrides }.not_to raise_error
+      end
+
+      it 'does not modify the non-Array subscriptions value' do
+        loader.settings[:client][:subscriptions] = 'not_an_array'
+        loader.load_client_overrides
+        expect(loader.settings[:client][:subscriptions]).to eq('not_an_array')
+      end
+    end
+  end
+
+  describe '#load_overrides!' do
+    context 'when legion_service_name is client or rspec' do
+      it 'calls load_client_overrides' do
+        allow(loader).to receive(:legion_service_name).and_return('rspec')
+        expect(loader).to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+
+      it 'calls load_client_overrides for client service name' do
+        allow(loader).to receive(:legion_service_name).and_return('client')
+        expect(loader).to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+    end
+
+    context 'when legion_service_name is something else' do
+      it 'does not call load_client_overrides' do
+        allow(loader).to receive(:legion_service_name).and_return('worker')
+        expect(loader).not_to receive(:load_client_overrides)
+        loader.load_overrides!
+      end
+    end
+  end
+
+  describe '#validate' do
+    it 'does not raise when Legion::Settings.validate! raises ValidationError' do
+      allow(Legion::Settings).to receive(:validate!).and_raise(
+        Legion::Settings::ValidationError.new([{ module: :test, path: 'test.key', message: 'bad' }])
+      )
+      expect { loader.validate }.not_to raise_error
+    end
+  end
+
+  describe '#setting_category' do
+    it 'returns mapped entries with :name merged' do
+      loader.settings[:transport] = { host: { default: 'localhost' }, port: { default: 5672 } }
+      result = loader.send(:setting_category, :transport)
+      expect(result).to be_an(Array)
+      expect(result).to include(a_hash_including(name: 'host', default: 'localhost'))
+      expect(result).to include(a_hash_including(name: 'port', default: 5672))
+    end
+  end
+
+  describe '#definition_exists?' do
+    it 'returns true for an existing key' do
+      loader.settings[:transport] = { host: 'localhost', port: 5672 }
+      expect(loader.send(:definition_exists?, :transport, :host)).to be true
+    end
+
+    it 'returns false for a missing key' do
+      loader.settings[:transport] = { host: 'localhost' }
+      expect(loader.send(:definition_exists?, :transport, :nonexistent)).to be false
+    end
+  end
+
+  describe '#warning' do
+    it 'appends to @warnings with merged data' do
+      loader.send(:warning, 'test msg', extra: 'data')
+      expect(loader.warnings.last).to eq({ message: 'test msg', extra: 'data' })
+    end
+
+    it 'logs a warn' do
+      expect(loader.warnings).to be_empty
+      loader.send(:warning, 'another warning')
+      expect(loader.warnings.size).to eq(1)
+      expect(loader.warnings.last[:message]).to eq('another warning')
     end
   end
 

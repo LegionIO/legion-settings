@@ -52,6 +52,21 @@ RSpec.describe Legion::Settings::Resolver do
       end
     end
 
+    context 'with arrays containing URI patterns (chain resolution)' do
+      after { ENV.delete('RESOLVER_CHAIN_TEST_VAR') }
+
+      it 'resolves to the fallback value when env var is unset' do
+        result = described_class.resolve_value(['env://RESOLVER_CHAIN_TEST_VAR', 'fallback_value'])
+        expect(result).to eq('fallback_value')
+      end
+
+      it 'resolves to the env value when env var is set (first match wins)' do
+        ENV['RESOLVER_CHAIN_TEST_VAR'] = 'from_env'
+        result = described_class.resolve_value(['env://RESOLVER_CHAIN_TEST_VAR', 'ignored'])
+        expect(result).to eq('from_env')
+      end
+    end
+
     context 'with plain arrays (no URI prefix)' do
       it 'returns the array unchanged when no entries have URI prefixes' do
         arr = %w[alpha beta gamma]

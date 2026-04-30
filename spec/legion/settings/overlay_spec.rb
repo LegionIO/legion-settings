@@ -109,6 +109,30 @@ RSpec.describe Legion::Settings::Overlay do
     end
   end
 
+  describe '.active?' do
+    it 'returns false when no overlay is active' do
+      expect(described_class.active?).to be false
+    end
+
+    it 'returns true inside a with_overlay block' do
+      described_class.with_overlay(foo: 'bar') do
+        expect(described_class.active?).to be true
+      end
+    end
+
+    it 'returns false after the with_overlay block exits' do
+      described_class.with_overlay(foo: 'bar') { nil }
+      expect(described_class.active?).to be false
+    end
+
+    it 'returns false after clear_overlay!' do
+      described_class.with_overlay(foo: 'bar') do
+        described_class.clear_overlay!
+        expect(described_class.active?).to be false
+      end
+    end
+  end
+
   describe '.clear_overlay!' do
     it 'clears any active overlay for the current thread' do
       described_class.with_overlay(foo: 'bar') do
@@ -153,6 +177,7 @@ RSpec.describe Legion::Settings do
     end
 
     it 'does not affect [] outside the block' do
+      described_class.merge_settings(:cache, { driver: 'dalli' })
       expect(described_class[:cache][:driver]).to eq('dalli')
       described_class.with_overlay(cache: { driver: 'redis' }) do
         expect(described_class[:cache][:driver]).to eq('redis')

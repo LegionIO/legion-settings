@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'legion/settings/deep_merge'
+
 module Legion
   module Settings
     # Thread-local request-scoped settings overlay.
@@ -38,6 +40,13 @@ module Legion
           Thread.current[THREAD_KEY]
         end
 
+        # Returns true when a thread-local overlay is active.
+        #
+        # @return [Boolean]
+        def active?
+          !Thread.current[THREAD_KEY].nil?
+        end
+
         # Clear the thread-local overlay for the current thread.
         def clear_overlay!
           Thread.current[THREAD_KEY] = nil
@@ -61,16 +70,7 @@ module Legion
         private
 
         def deep_merge(base, overrides)
-          result = base.dup
-          overrides.each do |key, value|
-            existing = result[key]
-            result[key] = if existing.is_a?(Hash) && value.is_a?(Hash)
-                            deep_merge(existing, value)
-                          else
-                            value
-                          end
-          end
-          result
+          DeepMerge.deep_merge(base, overrides)
         end
       end
     end

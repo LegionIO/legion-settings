@@ -43,6 +43,12 @@ RSpec.describe Legion::Settings::Schema do
       expect(constraint[:type]).to eq(:hash)
     end
 
+    it 'infers float type from float defaults' do
+      schema.register(:metrics, { threshold: 3.14 })
+      constraint = schema.constraint(:metrics, [:threshold])
+      expect(constraint[:type]).to eq(:float)
+    end
+
     it 'infers array type from empty array' do
       schema.register(:test, { items: [] })
       constraint = schema.constraint(:test, [:items])
@@ -62,6 +68,19 @@ RSpec.describe Legion::Settings::Schema do
     end
   end
 
+  describe '#schema_for' do
+    it 'returns the schema for a registered module' do
+      schema.register(:transport, { connection: { host: 'localhost' } })
+      result = schema.schema_for(:transport)
+      expect(result).to be_a(Hash)
+      expect(result.key?(:connection)).to be true
+    end
+
+    it 'returns nil for a nonexistent module' do
+      expect(schema.schema_for(:nonexistent)).to be_nil
+    end
+  end
+
   describe '#define_override' do
     it 'overrides inferred type for a nil default' do
       schema.register(:crypt, { cluster_secret: nil })
@@ -76,6 +95,22 @@ RSpec.describe Legion::Settings::Schema do
       schema.define_override(:cache, { driver: { enum: %w[dalli redis] } })
       constraint = schema.constraint(:cache, [:driver])
       expect(constraint[:enum]).to eq(%w[dalli redis])
+    end
+
+    it 'recurses into nested overrides without :type/:required/:enum keys' do
+      schema.register(:transport, { connection: { host: 'localhost', port: 5672 } })
+      schema.define_override(:transport, { connection: { host: { type: :string, required: true } } })
+      constraint = schema.constraint(:transport, %i[connection host])
+      expect(constraint[:type]).to eq(:string)
+      expect(constraint[:required]).to eq(true)
+    end
+
+    it 'merges directly when override has :type key' do
+      schema.register(:cache, { driver: 'dalli' })
+      schema.define_override(:cache, { driver: { type: :string, required: true } })
+      constraint = schema.constraint(:cache, [:driver])
+      expect(constraint[:type]).to eq(:string)
+      expect(constraint[:required]).to eq(true)
     end
   end
 
@@ -114,6 +149,57 @@ RSpec.describe Legion::Settings::Schema do
       errors = schema.validate_module(:crypt, { cluster_secret: nil })
       expect(errors.length).to eq(1)
       expect(errors.first[:message]).to include('required')
+    end
+
+    it 'passes float validation for Float value' do
+      schema.register(:metrics, { threshold: 3.14 })
+      errors = schema.validate_module(:metrics, { threshold: 2.71 })
+      expect(errors).to be_empty
+    end
+
+    it 'passes float validation for Integer value' do
+      schema.register(:metrics, { threshold: 3.14 })
+      errors = schema.validate_module(:metrics, { threshold: 5 })
+      expect(errors).to be_empty
+    end
+
+    it 'fails float validation for String value' do
+      schema.register(:metrics, { threshold: 3.14 })
+      errors = schema.validate_module(:metrics, { threshold: 'high' })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:message]).to include('expected Float')
+    end
+
+    it 'passes boolean validation for true and false' do
+      schema.register(:cache, { enabled: true })
+      expect(schema.validate_module(:cache, { enabled: true })).to be_empty
+      expect(schema.validate_module(:cache, { enabled: false })).to be_empty
+    end
+
+    it 'fails boolean validation for String value' do
+      schema.register(:cache, { enabled: true })
+      errors = schema.validate_module(:cache, { enabled: 'yes' })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:message]).to include('expected Boolean')
+    end
+
+    it 'passes hash validation for Hash value' do
+      schema.register(:cluster, { public_keys: {} })
+      errors = schema.validate_module(:cluster, { public_keys: { node1: 'abc' } })
+      expect(errors).to be_empty
+    end
+
+    it 'fails hash validation for String value' do
+      schema.register(:cluster, { public_keys: {} })
+      errors = schema.validate_module(:cluster, { public_keys: 'not_a_hash' })
+      expect(errors.length).to eq(1)
+      expect(errors.first[:message]).to include('expected Hash')
+    end
+
+    it 'includes type name and actual class in type mismatch error' do
+      schema.register(:transport, { connection: { port: 5672 } })
+      errors = schema.validate_module(:transport, { connection: { port: 'bad' } })
+      expect(errors.first[:message]).to match(/expected Integer, got String/)
     end
 
     it 'allows nil for non-required fields regardless of type' do

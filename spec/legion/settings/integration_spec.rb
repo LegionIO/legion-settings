@@ -23,10 +23,13 @@ RSpec.describe 'Settings validation integration' do
       expect(Legion::Settings.schema.registered_modules).to include(:mymodule)
     end
 
-    it 'collects type errors on merge when user config conflicts' do
+    it 'defers type error collection to validate! (not on merge)' do
       Legion::Settings.set_prop(:mymodule, { port: 'not_a_number' })
       Legion::Settings.merge_settings('mymodule', { port: 8080 })
-      expect(Legion::Settings.errors).not_to be_empty
+      # Errors are NOT collected eagerly on merge anymore
+      expect(Legion::Settings.errors).to be_empty
+      # But validate! catches them
+      expect { Legion::Settings.validate! }.to raise_error(Legion::Settings::ValidationError)
     end
   end
 

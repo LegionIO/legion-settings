@@ -60,8 +60,9 @@ RSpec.describe Legion::Settings do
       expect(described_class[:nonexistent]).to be_nil
     end
 
-    it 'returns expected default values' do
-      expect(described_class[:cache][:driver]).to eq('dalli')
+    it 'returns empty stubs for tier 2 libraries before they register' do
+      expect(described_class[:cache]).to be_a(Hash)
+      expect(described_class[:transport]).to be_a(Hash)
     end
 
     it 'auto-loads .legionio.env when accessed implicitly' do

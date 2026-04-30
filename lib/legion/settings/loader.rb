@@ -4,9 +4,11 @@ require 'resolv'
 require 'socket'
 require 'digest'
 require 'tmpdir'
+require 'concurrent/hash'
 require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
+require_relative 'deep_merge'
 
 module Legion
   module Settings
@@ -47,12 +49,21 @@ module Legion
       def dns_defaults
         resolv_config = read_resolv_config
         {
-          fqdn:           detect_fqdn,
+          fqdn:           nil, # lazy — resolved on first access via resolve_fqdn!
           default_domain: resolv_config[:search_domains]&.first,
           search_domains: resolv_config[:search_domains] || [],
           nameservers:    resolv_config[:nameservers] || [],
           bootstrap:      { enabled: true }
         }
+      end
+
+      # Lazily resolve the FQDN on first access instead of blocking at init.
+      #
+      # @return [String, nil] the fully qualified domain name, or nil
+      def resolve_fqdn!
+        return @settings[:dns][:fqdn] if @settings.dig(:dns, :fqdn)
+
+        @settings[:dns][:fqdn] = detect_fqdn
       end
 
       def client_defaults
@@ -64,64 +75,25 @@ module Legion
         }
       end
 
-      def logging_defaults
-        {
-          level:       'info',
-          format:      'text',
-          log_file:    './legionio/logs/legion.log',
-          log_stdout:  true,
-          trace:       true,
-          async:       true,
-          include_pid: false,
-          transport:   {
-            enabled:            true,
-            forward_logs:       true,
-            forward_exceptions: true
-          }
-        }
-      end
-
-      def absorbers_defaults
-        {
-          enabled:   true,
-          max_depth: 5,
-          sources:   {
-            meetings:    {
-              enabled:          true,
-              include_chat:     true,
-              include_files:    true,
-              retention_days:   90,
-              min_duration_min: 5
-            },
-            email_inbox: {
-              enabled:      false,
-              folder:       'inbox',
-              max_age_days: 30
-            },
-            github:      {
-              enabled: true,
-              events:  %w[pull_request issues]
-            },
-            files:       {
-              enabled:    true,
-              watch_dirs: [],
-              extensions: %w[pdf docx txt md pptx rtf]
-            }
-          }
-        }
-      end
+      # No more per-module defaults methods in the Loader.
+      # Tier 1 deps (json, logging) are called directly in default_settings.
+      # Tier 2 libraries (transport, cache, etc.) self-register via
+      # Legion::Settings.register_library when they load.
 
       def default_settings
         {
+          # --- Tier 1: gemspec dependencies (always installed with legion-settings) ---
+          # legion-logging: always available, has Settings.default
+          logging:                    Legion::Logging::Settings.default,
+          # legion-json: always available, no Settings module yet — stub
+          # until legion-json adds Legion::JSON::Settings.default
+          json:                       Concurrent::Hash.new,
+
+          # --- Structural: owned by legion-settings itself ---
           client:                     client_defaults,
-          cluster:                    { public_keys: {} },
-          crypt:                      {
-            cluster_secret:         nil,
-            cluster_secret_timeout: 5,
-            vault:                  { connected: false }
-          },
-          cache:                      { enabled: true, connected: false, driver: 'dalli' },
-          extensions:                 {
+          cluster:                    Concurrent::Hash.new,
+          dns:                        dns_defaults,
+          extensions:                 Concurrent::Hash[
             core:               %w[
               lex-node lex-tasker lex-scheduler lex-health lex-ping
               lex-telemetry lex-metering lex-log lex-audit
@@ -140,20 +112,25 @@ module Legion
             reserved_words:     %w[transport cache crypt data settings json logging llm rbac legion],
             agentic:            { allowed: nil, blocked: [] },
             parallel_pool_size: 24
-          },
+          ],
           reload:                     false,
           reloading:                  false,
           auto_install_missing_lex:   true,
           default_extension_settings: {},
-          logging:                    logging_defaults,
-          absorbers:                  absorbers_defaults,
-          transport:                  { connected: false },
-          data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
           region:                     { current: nil, primary: nil, failover: nil, peers: [],
                                         default_affinity: 'any', data_residency: {} },
           process:                    { role: 'full' },
-          dns:                        dns_defaults
+
+          # --- Tier 2: stubs for libraries that self-register via register_library ---
+          # These ensure Settings[:key] returns a hash (not nil) before
+          # the owning library loads. The library replaces these with its
+          # full defaults when it calls Legion::Settings.register_library.
+          absorbers:                  Concurrent::Hash.new,
+          cache:                      Concurrent::Hash.new,
+          crypt:                      Concurrent::Hash.new,
+          data:                       Concurrent::Hash.new,
+          transport:                  Concurrent::Hash.new
         }
       end
 
@@ -165,12 +142,26 @@ module Legion
         @settings
       end
 
+      # Direct key lookup — does NOT trigger indifferent_access! rebuild.
+      # This is the hot path called by every Settings[:key] access.
+      # Supports both symbol and string keys without converting the whole tree.
       def [](key)
-        to_hash[key]
+        result = @settings[key]
+        return result unless result.nil? && key.is_a?(String)
+
+        @settings[key.to_sym]
       end
 
+      # Direct nested lookup — does NOT trigger indifferent_access! rebuild.
       def dig(*keys)
-        to_hash.dig(*keys)
+        keys.reduce(self) do |current, key|
+          return nil unless current.respond_to?(:[])
+
+          value = current.is_a?(Loader) ? current[key] : (current[key] || current[key.to_s])
+          return nil if value.nil? && !current.is_a?(Loader)
+
+          value
+        end
       end
 
       def []=(key, value)
@@ -376,29 +367,15 @@ module Legion
 
       def read_config_file(file)
         contents = File.read(file).dup
-        if contents.respond_to?(:force_encoding)
-          encoding = ::Encoding::ASCII_8BIT
-          contents = contents.force_encoding(encoding)
-          bom = (+"\xEF\xBB\xBF").force_encoding(encoding)
-          contents.sub!(bom, '')
-        else
-          contents.sub!(/^\357\273\277/, '')
-        end
+        encoding = ::Encoding::ASCII_8BIT
+        contents = contents.force_encoding(encoding)
+        bom = (+"\xEF\xBB\xBF").force_encoding(encoding)
+        contents.sub!(bom, '')
         contents.strip
       end
 
       def deep_merge(hash_one, hash_two)
-        merged = hash_one.dup
-        hash_two.each do |key, value|
-          merged[key] = if hash_one[key].is_a?(Hash) && value.is_a?(Hash)
-                          deep_merge(hash_one[key], value)
-                        elsif hash_one[key].is_a?(Array) && value.is_a?(Array)
-                          hash_one[key].concat(value).uniq
-                        else
-                          value
-                        end
-        end
-        merged
+        DeepMerge.deep_merge(hash_one, hash_two)
       end
 
       def create_loaded_tempfile!

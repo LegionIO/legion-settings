@@ -1,16 +1,6 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-begin
-  require 'simplecov'
-  SimpleCov.start
-  if ENV.key?('CODECOV_TOKEN')
-    require 'codecov'
-    SimpleCov.formatter = SimpleCov::Formatter::Codecov
-  end
-rescue LoadError
-  puts 'Failed to load file for coverage reports, continuing without it'
-end
 
 require 'legion/logging'
 Legion::Logging.setup(log_level: 'warn', level: 'warn', trace: true)
@@ -73,6 +63,21 @@ RSpec.describe 'Legion::Settings' do
     expect(Legion::Settings[:transport]).to be_a Hash
     expect(Legion::Settings[:transport][:foo]).to be nil
     expect { Legion::Settings[:transport][:foo][:test] }.to raise_error NoMethodError
+  end
+end
+
+RSpec.describe 'Legion::Settings.loaded?' do
+  before { Legion::Settings.reset! }
+
+  it 'returns false before load is called with config files' do
+    expect(Legion::Settings.loaded?).to be false
+  end
+
+  it 'returns true after load is called with a config file' do
+    assets_dir = File.join(File.dirname(__FILE__), 'assets')
+    config_file = File.join(assets_dir, 'config.json')
+    Legion::Settings.load(config_file: config_file)
+    expect(Legion::Settings.loaded?).to be true
   end
 end
 
