@@ -101,6 +101,21 @@ module Legion
         validate_module_on_merge(key.to_sym)
       end
 
+      # Clean hook for legion-* core libraries to register their defaults.
+      # Called at the bottom of the library's settings.rb file.
+      # Library defaults fill in gaps; user JSON config wins.
+      # Idempotent — calling twice with the same key is safe.
+      #
+      # Usage in legion-transport/lib/legion/transport/settings.rb:
+      #   Legion::Settings.register_library(:transport, Legion::Transport::Settings.default)
+      def register_library(key, defaults)
+        sym = key.to_sym
+        return if @registered_libraries&.include?(sym)
+
+        merge_settings(sym, defaults)
+        (@registered_libraries ||= []) << sym
+      end
+
       def define_schema(key, overrides)
         schema.define_override(key.to_sym, overrides)
       end
@@ -293,6 +308,7 @@ module Legion
         @loaded = nil
         @schema = nil
         @cross_validations = nil
+        @registered_libraries = nil
         @reload_callbacks = nil
         @reload_mutex = nil
         @reload_flag = nil

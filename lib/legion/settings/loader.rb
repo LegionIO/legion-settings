@@ -65,46 +65,24 @@ module Legion
         }
       end
 
-      # Minimal structural defaults — enough for the key to exist so
-      # Settings[:logging] doesn't raise before the owning module loads.
-      # The owning module (legion-logging) should register its complete
-      # defaults via merge_settings when it loads. If legion-logging is
-      # available at Settings init time, we pull its defaults directly.
-      def logging_defaults
-        if defined?(Legion::Logging::Settings) && Legion::Logging::Settings.respond_to?(:default)
-          Legion::Logging::Settings.default
-        else
-          Concurrent::Hash[level: :info]
-        end
-      end
-
-      # Same pattern for legion-json — no settings today, but the hook
-      # is here so future JSON config (parse_mode, symbolize_keys, etc.)
-      # gets picked up without hardcoding in the Loader.
-      def json_defaults
-        if defined?(Legion::JSON::Settings) && Legion::JSON::Settings.respond_to?(:default)
-          Legion::JSON::Settings.default
-        else
-          Concurrent::Hash.new
-        end
-      end
-
-      # Absorber defaults belong to LegionIO (not a separate gem).
-      # LegionIO should register these via merge_settings during boot.
-      def absorbers_defaults
-        Concurrent::Hash.new
-      end
+      # No more per-module defaults methods in the Loader.
+      # Tier 1 deps (json, logging) are called directly in default_settings.
+      # Tier 2 libraries (transport, cache, etc.) self-register via
+      # Legion::Settings.register_library when they load.
 
       def default_settings
         {
+          # --- Tier 1: gemspec dependencies (always installed with legion-settings) ---
+          # legion-logging: always available, has Settings.default
+          logging:                    Legion::Logging::Settings.default,
+          # legion-json: always available, no Settings module yet — stub
+          # until legion-json adds Legion::JSON::Settings.default
+          json:                       Concurrent::Hash.new,
+
+          # --- Structural: owned by legion-settings itself ---
           client:                     client_defaults,
-          cluster:                    { public_keys: {} },
-          crypt:                      {
-            cluster_secret:         nil,
-            cluster_secret_timeout: 5,
-            vault:                  { connected: false }
-          },
-          cache:                      { enabled: true, connected: false, driver: 'dalli' },
+          cluster:                    Concurrent::Hash.new,
+          dns:                        dns_defaults,
           extensions:                 Concurrent::Hash[
             core:               %w[
               lex-node lex-tasker lex-scheduler lex-health lex-ping
@@ -129,16 +107,20 @@ module Legion
           reloading:                  false,
           auto_install_missing_lex:   true,
           default_extension_settings: {},
-          json:                       json_defaults,
-          logging:                    logging_defaults,
-          absorbers:                  absorbers_defaults,
-          transport:                  { connected: false },
-          data:                       { connected: false },
           role:                       { profile: nil, extensions: [] },
           region:                     { current: nil, primary: nil, failover: nil, peers: [],
                                         default_affinity: 'any', data_residency: {} },
           process:                    { role: 'full' },
-          dns:                        dns_defaults
+
+          # --- Tier 2: stubs for libraries that self-register via register_library ---
+          # These ensure Settings[:key] returns a hash (not nil) before
+          # the owning library loads. The library replaces these with its
+          # full defaults when it calls Legion::Settings.register_library.
+          absorbers:                  Concurrent::Hash.new,
+          cache:                      Concurrent::Hash.new,
+          crypt:                      Concurrent::Hash.new,
+          data:                       Concurrent::Hash.new,
+          transport:                  Concurrent::Hash.new
         }
       end
 

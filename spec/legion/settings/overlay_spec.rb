@@ -153,6 +153,7 @@ RSpec.describe Legion::Settings do
     end
 
     it 'does not affect [] outside the block' do
+      described_class.merge_settings(:cache, { driver: 'dalli' })
       expect(described_class[:cache][:driver]).to eq('dalli')
       described_class.with_overlay(cache: { driver: 'redis' }) do
         expect(described_class[:cache][:driver]).to eq('redis')

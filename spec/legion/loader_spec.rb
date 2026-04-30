@@ -73,34 +73,30 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:client][:ready]).to eq(false)
     end
 
-    it 'has cluster settings' do
-      expect(defaults[:cluster]).to eq({ public_keys: {} })
+    it 'has cluster as empty Concurrent::Hash stub' do
+      expect(defaults[:cluster]).to be_a(Concurrent::Hash)
     end
 
-    it 'has crypt settings' do
-      expect(defaults[:crypt]).to be_a(Hash)
-      expect(defaults[:crypt][:cluster_secret]).to be_nil
-      expect(defaults[:crypt][:vault]).to eq({ connected: false })
+    it 'has crypt as empty Concurrent::Hash stub (module self-registers)' do
+      expect(defaults[:crypt]).to be_a(Concurrent::Hash)
     end
 
-    it 'has cache settings' do
-      expect(defaults[:cache]).to be_a(Hash)
-      expect(defaults[:cache][:enabled]).to eq(true)
-      expect(defaults[:cache][:connected]).to eq(false)
-      expect(defaults[:cache][:driver]).to eq('dalli')
+    it 'has cache as empty Concurrent::Hash stub (module self-registers)' do
+      expect(defaults[:cache]).to be_a(Concurrent::Hash)
     end
 
     it 'has extensions hash' do
       expect(defaults[:extensions]).to be_a(Hash)
     end
 
-    it 'has a logging key' do
+    it 'has logging with defaults from Legion::Logging::Settings' do
       expect(defaults[:logging]).to be_a(Hash)
+      expect(defaults[:logging][:level]).to eq(:info)
     end
 
-    it 'has transport and data as not connected' do
-      expect(defaults[:transport]).to eq({ connected: false })
-      expect(defaults[:data]).to eq({ connected: false })
+    it 'has transport and data as empty Concurrent::Hash stubs' do
+      expect(defaults[:transport]).to be_a(Concurrent::Hash)
+      expect(defaults[:data]).to be_a(Concurrent::Hash)
     end
 
     it 'has dns settings' do
@@ -115,30 +111,28 @@ RSpec.describe Legion::Settings::Loader do
     end
   end
 
-  describe '#logging_defaults' do
-    subject(:logging) { loader.logging_defaults }
-
-    it 'returns a hash' do
-      expect(logging).to be_a(Hash)
-    end
-
-    it 'pulls defaults from Legion::Logging::Settings when available' do
+  describe 'tier 1 defaults (gemspec dependencies)' do
+    it 'pulls logging defaults directly from Legion::Logging::Settings' do
+      logging = loader.to_hash[:logging]
       expect(logging[:level]).to eq(:info)
       expect(logging[:trace]).to eq(true)
     end
 
-    it 'includes only the owning module keys, not Loader-hardcoded keys' do
+    it 'does not hardcode logging keys that belong to legion-logging' do
+      logging = loader.to_hash[:logging]
       expect(logging).not_to have_key(:format)
       expect(logging).not_to have_key(:log_file)
       expect(logging).not_to have_key(:async)
     end
   end
 
-  describe '#absorbers_defaults' do
-    subject(:absorbers) { loader.absorbers_defaults }
-
-    it 'returns an empty hash (absorber defaults belong to LegionIO)' do
-      expect(absorbers).to eq({})
+  describe 'tier 2 stubs (self-registering libraries)' do
+    it 'starts with empty stubs for transport, cache, crypt, data, absorbers' do
+      defaults = loader.to_hash
+      %i[transport cache crypt data absorbers].each do |key|
+        expect(defaults[key]).to be_a(Hash)
+        expect(defaults[key]).to be_empty
+      end
     end
   end
 
@@ -456,13 +450,14 @@ RSpec.describe Legion::Settings::Loader do
         allow(bootstrap).to receive(:fetch).and_return(nil)
 
         loader.load_dns_bootstrap(cache_dir: cache_dir)
-        expect(loader[:transport]).to eq({ connected: false })
+        expect(loader[:transport]).to be_a(Hash)
       end
     end
   end
 
   describe 'deep merge behavior' do
     it 'merges nested hashes recursively' do
+      loader.load_module_settings({ crypt: { vault: { connected: false } } })
       loader.load_module_settings({ crypt: { vault: { token: 'abc' } } })
       expect(loader[:crypt][:vault][:token]).to eq('abc')
       expect(loader[:crypt][:vault][:connected]).to eq(false)
