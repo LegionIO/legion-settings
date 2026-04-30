@@ -1,14 +1,19 @@
 # frozen_string_literal: true
 
+require 'concurrent/hash'
+
 module Legion
   module Settings
     module Helper
       def settings
         ext_key = derive_settings_key
-        if Legion::Settings[:extensions]&.key?(ext_key)
-          Legion::Settings[:extensions][ext_key]
+        extensions = Legion::Settings[:extensions]
+        if extensions&.key?(ext_key)
+          extensions[ext_key]
         else
-          {}
+          empty = Concurrent::Hash.new
+          extensions[ext_key] = empty if extensions.is_a?(Hash)
+          empty
         end
       end
 

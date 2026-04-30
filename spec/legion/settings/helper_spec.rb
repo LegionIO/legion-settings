@@ -65,9 +65,19 @@ RSpec.describe Legion::Settings::Helper do
     end
 
     context 'when no extension settings exist' do
-      it 'returns an empty hash' do
+      it 'returns a thread-safe empty hash' do
         obj = with_lex_filename.new
-        expect(obj.settings).to eq({})
+        result = obj.settings
+        expect(result).to be_a(Concurrent::Hash)
+        expect(result).to be_empty
+      end
+
+      it 'registers the empty hash so subsequent writes persist' do
+        Legion::Settings.loader.load_module_settings(extensions: {})
+        obj = with_lex_filename.new
+        result = obj.settings
+        result[:new_key] = 'persisted'
+        expect(obj.settings[:new_key]).to eq('persisted')
       end
     end
   end
