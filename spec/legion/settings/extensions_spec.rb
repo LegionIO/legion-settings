@@ -713,4 +713,60 @@ RSpec.describe Legion::Settings::Extensions do
       expect(llm_requiring.first[:name]).to eq('lex-agentic-learning')
     end
   end
+
+  # ================================================================
+  # Settings override behavior
+  # ================================================================
+
+  describe 'settings override at registration time' do
+    it 'operator config overrides code defaults for mcp_tools' do
+      # Extension code says mcp_tools: true (the default)
+      code_defaults = { state: :running, mcp_tools: true, mcp_tools_deferred: true }
+
+      # Operator config says: disable tools for this extension
+      operator_overrides = { mcp_tools: false, mcp_tools_deferred: false }
+
+      # LegionIO merges before registration (settings wins)
+      registry.register_extension('lex-microsoft_teams', code_defaults.merge(operator_overrides))
+
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:mcp_tools]).to be false
+      expect(ext[:mcp_tools_deferred]).to be false
+    end
+
+    it 'operator config overrides remote_invocable' do
+      registry.register_extension('lex-microsoft_teams', {
+        state:            :running,
+        remote_invocable: true,    # code default
+        mcp_tools:        true     # code default
+      }.merge(remote_invocable: false)) # operator override
+
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:remote_invocable]).to be false
+      expect(ext[:mcp_tools]).to be true
+    end
+
+    it 'consumers see the resolved value, not the code default' do
+      registry.register_extension('lex-microsoft_teams', { state: :running, mcp_tools: false })
+      registry.register_tool('legion.microsoft_teams_create_chain', {
+                               extension:   'lex-microsoft_teams',
+                               description: 'Create a task chain',
+                               deferred:    false,
+                               source:      :discovery
+                             })
+
+      # legion-llm would filter tools by extension with mcp_tools enabled
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:mcp_tools]).to be false
+
+      # The tool still exists in the registry — it's the consumer's job
+      # to check the extension's mcp_tools flag before injecting
+      tool = registry.find_tool('legion.microsoft_teams_create_chain')
+      expect(tool).not_to be_nil
+
+      # Filter extensions where mcp_tools is enabled — microsoft_teams excluded
+      mcp_enabled = registry.filter_extensions(mcp_tools: true)
+      expect(mcp_enabled.map { |e| e[:name] }).not_to include('lex-microsoft_teams')
+    end
+  end
 end
