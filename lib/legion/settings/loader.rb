@@ -4,6 +4,7 @@ require 'resolv'
 require 'socket'
 require 'digest'
 require 'tmpdir'
+require 'concurrent/hash'
 require 'legion/logging'
 require 'legion/settings/os'
 require_relative 'dns_bootstrap'
@@ -121,7 +122,7 @@ module Legion
             vault:                  { connected: false }
           },
           cache:                      { enabled: true, connected: false, driver: 'dalli' },
-          extensions:                 {
+          extensions:                 Concurrent::Hash[
             core:               %w[
               lex-node lex-tasker lex-scheduler lex-health lex-ping
               lex-telemetry lex-metering lex-log lex-audit
@@ -140,7 +141,7 @@ module Legion
             reserved_words:     %w[transport cache crypt data settings json logging llm rbac legion],
             agentic:            { allowed: nil, blocked: [] },
             parallel_pool_size: 24
-          },
+          ],
           reload:                     false,
           reloading:                  false,
           auto_install_missing_lex:   true,
