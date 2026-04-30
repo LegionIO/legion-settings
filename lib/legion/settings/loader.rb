@@ -132,12 +132,26 @@ module Legion
         @settings
       end
 
+      # Direct key lookup — does NOT trigger indifferent_access! rebuild.
+      # This is the hot path called by every Settings[:key] access.
+      # Supports both symbol and string keys without converting the whole tree.
       def [](key)
-        to_hash[key]
+        result = @settings[key]
+        return result unless result.nil? && key.is_a?(String)
+
+        @settings[key.to_sym]
       end
 
+      # Direct nested lookup — does NOT trigger indifferent_access! rebuild.
       def dig(*keys)
-        to_hash.dig(*keys)
+        keys.reduce(self) do |current, key|
+          return nil unless current.respond_to?(:[])
+
+          value = current.is_a?(Loader) ? current[key] : (current[key] || current[key.to_s])
+          return nil if value.nil? && !current.is_a?(Loader)
+
+          value
+        end
       end
 
       def []=(key, value)

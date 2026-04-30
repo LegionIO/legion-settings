@@ -484,6 +484,55 @@ RSpec.describe Legion::Settings::Loader do
     end
   end
 
+  describe 'hot path performance' do
+    it '[] does not trigger indifferent_access! rebuild' do
+      # Simulate the boot cascade: mark_dirty then read
+      loader.load_module_settings({ test_mod: { key: 'value' } })
+      # mark_dirty! was called — @indifferent_access is false
+      # [] should NOT call indifferent_access!, just read @settings directly
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader[:test_mod][:key]).to eq('value')
+    end
+
+    it 'dig does not trigger indifferent_access! rebuild' do
+      loader.load_module_settings({ nested: { deep: { val: 42 } } })
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader.dig(:nested, :deep, :val)).to eq(42)
+    end
+
+    it '[] supports string keys without full rebuild' do
+      loader.load_module_settings({ logging: { level: :info } })
+      expect(loader).not_to receive(:indifferent_access!)
+      expect(loader['logging'][:level]).to eq(:info)
+    end
+
+    it 'to_hash still triggers indifferent_access! when dirty' do
+      loader.load_module_settings({ test_mod: { key: 'value' } })
+      # to_hash SHOULD trigger the rebuild — it's the serialization path
+      result = loader.to_hash
+      expect(result).to be_a(Hash)
+      expect(result[:test_mod][:key]).to eq('value')
+    end
+
+    it 'reads between mutations do not cascade' do
+      rebuild_count = 0
+      allow(loader).to receive(:indifferent_access!).and_wrap_original do |original|
+        rebuild_count += 1
+        original.call
+      end
+
+      # Simulate 10 modules registering, with reads between each
+      10.times do |i|
+        loader.load_module_settings({ "mod_#{i}": { val: i } })
+        loader[:logging] # read on hot path between mutations
+      end
+
+      # to_hash should trigger exactly 1 rebuild (when called)
+      loader.to_hash
+      expect(rebuild_count).to eq(1)
+    end
+  end
+
   describe '#load_client_overrides' do
     context 'when subscriptions is an Array' do
       it 'appends the client name subscription and deduplicates' do
