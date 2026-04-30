@@ -1,5 +1,22 @@
 # Legion::Settings Changelog
 
+## [1.4.0] - 2026-04-29
+
+### Added
+- `Legion::Settings::Extensions` — thread-safe runtime registry for extensions, runners, and tools
+- `register_extension`, `register_runner`, `register_tool` — registration methods called during LegionIO boot pipeline
+- `transition(name, state)` — lifecycle state transitions (:discovered, :loaded, :running, :stopped)
+- `extensions`, `runners`, `tools` — query methods returning frozen snapshots of all registered entries
+- `find_extension`, `find_runner`, `find_tool` — lookup by name returning frozen copies
+- `filter_tools(**criteria)` — filter by extension, deferred, sticky, mcp_tier, tags, category, state, source
+- `filter_extensions(**criteria)` — filter by state, category, phase
+- `unregister_extension(name)` — cascade-removes extension and its associated runners and tools
+- `unregister_tool(name)` — remove a single tool
+- `reset!` — clear all registries (for test cleanup)
+- `extension_count`, `runner_count`, `tool_count` — convenience count methods
+- All read operations return frozen duplicates to prevent mutation of registry internals
+- Mutex-protected writes for thread safety during concurrent extension loading
+
 ## [1.3.27] - 2026-04-27
 
 ### Added

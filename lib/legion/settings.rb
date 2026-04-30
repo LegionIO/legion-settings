@@ -10,6 +10,7 @@ require 'legion/settings/validation_error'
 require 'legion/settings/helper'
 require 'legion/settings/overlay'
 require 'legion/settings/project_env'
+require 'legion/settings/extensions'
 
 module Legion
   module Settings
