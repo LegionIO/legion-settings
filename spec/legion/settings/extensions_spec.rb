@@ -539,4 +539,155 @@ RSpec.describe Legion::Settings::Extensions do
       expect(registry.tool_count).to eq(1)
     end
   end
+
+  # ================================================================
+  # Multi-segment extension support
+  # ================================================================
+
+  describe 'multi-segment extension support' do
+    # lex-agentic-learning: 2-segment nested extension with sub-runners
+    let(:agentic_learning) do
+      {
+        version:            '0.1.10',
+        state:              :running,
+        category:           :agentic,
+        tier:               4,
+        phase:              1,
+        gem_name:           'lex-agentic-learning',
+        const_path:         'Legion::Extensions::Agentic::Learning',
+        runners:            %w[
+          agentic/learning/anchoring
+          agentic/learning/hebbian
+          agentic/learning/plasticity
+          agentic/learning/curiosity
+        ],
+        mcp_tools:          true,
+        mcp_tools_deferred: true,
+        data_required:      false,
+        llm_required:       true
+      }
+    end
+
+    # lex-llm-openai: 2-segment nested LLM provider
+    let(:llm_openai) do
+      {
+        version:    '0.1.6',
+        state:      :running,
+        category:   :ai,
+        tier:       2,
+        phase:      1,
+        gem_name:   'lex-llm-openai',
+        const_path: 'Legion::Extensions::Llm::Openai',
+        runners:    [],
+        mcp_tools:  false
+      }
+    end
+
+    # lex-llm-azure-foundry: 3-segment nested LLM provider
+    let(:llm_azure_foundry) do
+      {
+        version:    '0.1.3',
+        state:      :loaded,
+        category:   :ai,
+        tier:       2,
+        phase:      1,
+        gem_name:   'lex-llm-azure-foundry',
+        const_path: 'Legion::Extensions::Llm::AzureFoundry',
+        runners:    []
+      }
+    end
+
+    it 'derives correct segments for 2-segment agentic extension' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      ext = registry.find_extension('lex-agentic-learning')
+      expect(ext[:segments]).to eq(%w[agentic learning])
+      expect(ext[:lex_name]).to eq('agentic_learning')
+      expect(ext[:lex_slug]).to eq('agentic.learning')
+    end
+
+    it 'derives correct segments for 2-segment LLM provider' do
+      registry.register_extension('lex-llm-openai', llm_openai)
+      ext = registry.find_extension('lex-llm-openai')
+      expect(ext[:segments]).to eq(%w[llm openai])
+      expect(ext[:lex_name]).to eq('llm_openai')
+      expect(ext[:lex_slug]).to eq('llm.openai')
+    end
+
+    it 'derives correct segments for 3-word LLM provider with compound suffix' do
+      registry.register_extension('lex-llm-azure-foundry', llm_azure_foundry)
+      ext = registry.find_extension('lex-llm-azure-foundry')
+      expect(ext[:segments]).to eq(%w[llm azure_foundry])
+      expect(ext[:lex_name]).to eq('llm_azure_foundry')
+      expect(ext[:lex_slug]).to eq('llm.azure_foundry')
+    end
+
+    it 'registers runners for multi-segment extension' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      registry.register_runner('agentic/learning/anchoring/reinforce', {
+                                 extension:     'lex-agentic-learning',
+                                 runner_module: 'Legion::Extensions::Agentic::Learning::Anchoring::Runners::Anchoring',
+                                 function:      'reinforce',
+                                 exposed:       true
+                               })
+      runner = registry.find_runner('agentic/learning/anchoring/reinforce')
+      expect(runner[:extension]).to eq('lex-agentic-learning')
+      expect(runner[:function]).to eq('reinforce')
+    end
+
+    it 'registers tools for multi-segment extension' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      registry.register_tool('legion.agentic_learning_anchoring_reinforce', {
+                               extension:    'lex-agentic-learning',
+                               runner:       'agentic/learning/anchoring',
+                               function:     'reinforce',
+                               description:  'Reinforce an anchor point in memory',
+                               input_schema: { type: 'object', properties: { anchor_id: { type: 'string' } } },
+                               deferred:     true,
+                               source:       :discovery
+                             })
+      tool = registry.find_tool('legion.agentic_learning_anchoring_reinforce')
+      expect(tool[:extension]).to eq('lex-agentic-learning')
+      expect(tool[:runner]).to eq('agentic/learning/anchoring')
+      expect(tool[:deferred]).to be true
+    end
+
+    it 'filters tools by multi-segment extension name' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      registry.register_extension('lex-github', { state: :running, category: :service })
+      registry.register_tool('legion.agentic_learning_anchoring_reinforce', {
+                               extension: 'lex-agentic-learning', deferred: true, source: :discovery
+                             })
+      registry.register_tool('legion.github_repos_list', {
+                               extension: 'lex-github', deferred: false, source: :discovery
+                             })
+
+      result = registry.filter_tools(extension: 'lex-agentic-learning')
+      expect(result.size).to eq(1)
+      expect(result.first[:name]).to eq('legion.agentic_learning_anchoring_reinforce')
+    end
+
+    it 'cascades unregister for multi-segment extension' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      registry.register_runner('agentic/learning/anchoring/reinforce', {
+                                 extension: 'lex-agentic-learning'
+                               })
+      registry.register_tool('legion.agentic_learning_anchoring_reinforce', {
+                               extension: 'lex-agentic-learning'
+                             })
+
+      registry.unregister_extension('lex-agentic-learning')
+      expect(registry.find_extension('lex-agentic-learning')).to be_nil
+      expect(registry.find_runner('agentic/learning/anchoring/reinforce')).to be_nil
+      expect(registry.find_tool('legion.agentic_learning_anchoring_reinforce')).to be_nil
+    end
+
+    it 'filters extensions by requirement flags for multi-segment extensions' do
+      registry.register_extension('lex-agentic-learning', agentic_learning)
+      registry.register_extension('lex-llm-openai', llm_openai)
+
+      llm_requiring = registry.filter_extensions(llm_required: true)
+      expect(llm_requiring.size).to eq(1)
+      expect(llm_requiring.first[:name]).to eq('lex-agentic-learning')
+    end
+  end
 end

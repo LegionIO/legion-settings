@@ -312,6 +312,18 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       expect(result[:segments]).to eq(%w[custom path])
     end
 
+    it 'handles lex-agentic-learning segments' do
+      result = described_class.normalize_extension('lex-agentic-learning', { gem_name: 'lex-agentic-learning' })
+      expect(result[:segments]).to eq(%w[agentic learning])
+      expect(result[:lex_name]).to eq('agentic_learning')
+    end
+
+    it 'handles lex-llm-azure-foundry segments with compound suffix' do
+      result = described_class.normalize_extension('lex-llm-azure-foundry', { gem_name: 'lex-llm-azure-foundry' })
+      expect(result[:segments]).to eq(%w[llm azure_foundry])
+      expect(result[:lex_name]).to eq('llm_azure_foundry')
+    end
+
     it 'stores requirement flags from metadata' do
       result = described_class.normalize_extension('lex-data-heavy', {
                                                      data_required:  true,
