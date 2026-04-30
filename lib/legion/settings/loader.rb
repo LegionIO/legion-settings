@@ -65,51 +65,23 @@ module Legion
         }
       end
 
+      # Minimal structural defaults — enough for the key to exist so
+      # Settings[:logging] doesn't raise before the owning module loads.
+      # The owning module (legion-logging) should register its complete
+      # defaults via merge_settings when it loads. If legion-logging is
+      # available at Settings init time, we pull its defaults directly.
       def logging_defaults
-        {
-          level:       'info',
-          format:      'text',
-          log_file:    './legionio/logs/legion.log',
-          log_stdout:  true,
-          trace:       true,
-          async:       true,
-          include_pid: false,
-          transport:   {
-            enabled:            true,
-            forward_logs:       true,
-            forward_exceptions: true
-          }
-        }
+        if defined?(Legion::Logging::Settings) && Legion::Logging::Settings.respond_to?(:default)
+          Legion::Logging::Settings.default
+        else
+          { level: :info }
+        end
       end
 
+      # Absorber defaults belong to LegionIO (not a separate gem).
+      # LegionIO should register these via merge_settings during boot.
       def absorbers_defaults
-        {
-          enabled:   true,
-          max_depth: 5,
-          sources:   {
-            meetings:    {
-              enabled:          true,
-              include_chat:     true,
-              include_files:    true,
-              retention_days:   90,
-              min_duration_min: 5
-            },
-            email_inbox: {
-              enabled:      false,
-              folder:       'inbox',
-              max_age_days: 30
-            },
-            github:      {
-              enabled: true,
-              events:  %w[pull_request issues]
-            },
-            files:       {
-              enabled:    true,
-              watch_dirs: [],
-              extensions: %w[pdf docx txt md pptx rtf]
-            }
-          }
-        }
+        {}
       end
 
       def default_settings

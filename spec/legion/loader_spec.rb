@@ -94,20 +94,8 @@ RSpec.describe Legion::Settings::Loader do
       expect(defaults[:extensions]).to be_a(Hash)
     end
 
-    it 'has logging settings with all structured keys' do
-      logging = defaults[:logging]
-      expect(logging).to be_a(Hash)
-      expect(logging[:level]).to eq('info')
-      expect(logging[:format]).to eq('text')
-      expect(logging[:async]).to eq(true)
-      expect(logging[:include_pid]).to eq(false)
-      expect(logging[:log_stdout]).to eq(true)
-      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
-      expect(logging[:trace]).to eq(true)
-      expect(logging[:transport]).to be_a(Hash)
-      expect(logging[:transport][:enabled]).to eq(true)
-      expect(logging[:transport][:forward_logs]).to eq(true)
-      expect(logging[:transport][:forward_exceptions]).to eq(true)
+    it 'has a logging key' do
+      expect(defaults[:logging]).to be_a(Hash)
     end
 
     it 'has transport and data as not connected' do
@@ -134,88 +122,23 @@ RSpec.describe Legion::Settings::Loader do
       expect(logging).to be_a(Hash)
     end
 
-    it 'defaults level to info' do
-      expect(logging[:level]).to eq('info')
-    end
-
-    it 'defaults format to text' do
-      expect(logging[:format]).to eq('text')
-    end
-
-    it 'defaults async to true' do
-      expect(logging[:async]).to eq(true)
-    end
-
-    it 'defaults include_pid to false' do
-      expect(logging[:include_pid]).to eq(false)
-    end
-
-    it 'defaults log_stdout to true' do
-      expect(logging[:log_stdout]).to eq(true)
-    end
-
-    it 'defaults log_file to ./legionio/logs/legion.log' do
-      expect(logging[:log_file]).to eq('./legionio/logs/legion.log')
-    end
-
-    it 'defaults trace to true' do
+    it 'pulls defaults from Legion::Logging::Settings when available' do
+      expect(logging[:level]).to eq(:info)
       expect(logging[:trace]).to eq(true)
     end
 
-    it 'includes a transport sub-hash' do
-      expect(logging[:transport]).to be_a(Hash)
-    end
-
-    it 'defaults transport.enabled to true' do
-      expect(logging[:transport][:enabled]).to eq(true)
-    end
-
-    it 'defaults transport.forward_logs to true' do
-      expect(logging[:transport][:forward_logs]).to eq(true)
-    end
-
-    it 'defaults transport.forward_exceptions to true' do
-      expect(logging[:transport][:forward_exceptions]).to eq(true)
+    it 'includes only the owning module keys, not Loader-hardcoded keys' do
+      expect(logging).not_to have_key(:format)
+      expect(logging).not_to have_key(:log_file)
+      expect(logging).not_to have_key(:async)
     end
   end
 
   describe '#absorbers_defaults' do
     subject(:absorbers) { loader.absorbers_defaults }
 
-    it 'returns a hash' do
-      expect(absorbers).to be_a(Hash)
-    end
-
-    it 'defaults enabled to true' do
-      expect(absorbers[:enabled]).to be true
-    end
-
-    it 'defaults max_depth to 5' do
-      expect(absorbers[:max_depth]).to eq(5)
-    end
-
-    it 'has a sources section' do
-      expect(absorbers[:sources]).to be_a(Hash)
-    end
-
-    it 'defaults sources.meetings.enabled to true' do
-      expect(absorbers[:sources][:meetings][:enabled]).to be true
-    end
-
-    it 'defaults sources.email_inbox.enabled to false' do
-      expect(absorbers[:sources][:email_inbox][:enabled]).to be false
-    end
-
-    it 'defaults sources.github.enabled to true' do
-      expect(absorbers[:sources][:github][:enabled]).to be true
-    end
-
-    it 'defaults sources.files.enabled to true' do
-      expect(absorbers[:sources][:files][:enabled]).to be true
-    end
-
-    it 'defaults sources.files.extensions to expected list' do
-      expect(absorbers[:sources][:files][:extensions]).to eq(%w[pdf docx txt md pptx rtf])
+    it 'returns an empty hash (absorber defaults belong to LegionIO)' do
+      expect(absorbers).to eq({})
     end
   end
 
@@ -254,7 +177,7 @@ RSpec.describe Legion::Settings::Loader do
     it 'preserves default settings not in the file' do
       loader.load_file(config_file)
       expect(loader[:logging]).to be_a(Hash)
-      expect(loader[:logging][:level]).to eq('info')
+      expect(loader[:logging][:level]).to eq(:info)
     end
 
     it 'handles an empty file without error' do
@@ -324,7 +247,7 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'provides indifferent access with string keys' do
       expect(loader['logging']).to be_a(Hash)
-      expect(loader['logging'][:level]).to eq('info')
+      expect(loader['logging'][:level]).to eq(:info)
     end
   end
 
@@ -373,7 +296,7 @@ RSpec.describe Legion::Settings::Loader do
 
     it 'preserves existing values (settings priority)' do
       loader.load_module_settings({ logging: { level: 'fatal' } })
-      expect(loader[:logging][:level]).to eq('info')
+      expect(loader[:logging][:level]).to eq(:info)
     end
 
     it 'preserves unrelated settings' do
