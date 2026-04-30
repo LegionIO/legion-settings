@@ -97,13 +97,20 @@ module Legion
         #   legion-mcp: extension_info resource
         #   legion-llm: extension filter in tool queries
         def normalize_extension(name, metadata)
+          segments = resolve_segments(name, metadata)
           {
-            # Identity
+            # Identity (derived from gem name via Helpers::Segments conventions)
             name:                     name.to_s,
             gem_name:                 resolve_string(metadata, :gem_name) || name.to_s,
             description:              resolve_string(metadata, :description),
             version:                  resolve_string(metadata, :version),
             const_path:               resolve_string(metadata, :const_path),
+            segments:                 segments,
+            lex_name:                 resolve_string(metadata, :lex_name) || segments.join('_'),
+            lex_slug:                 resolve_string(metadata, :lex_slug) || segments.join('.'),
+            amqp_prefix:              resolve_string(metadata, :amqp_prefix),
+            settings_path:            resolve_string(metadata, :settings_path),
+            table_prefix:             resolve_string(metadata, :table_prefix),
 
             # Lifecycle state
             state:                    metadata.fetch(:state, :discovered).to_sym,
@@ -114,6 +121,18 @@ module Legion
             category:                 metadata[:category],
             tier:                     metadata[:tier],
             phase:                    metadata[:phase],
+
+            # Requirement flags — queryable WITHOUT loading the extension module.
+            # LegionIO boot checks these to skip extensions whose deps aren't ready.
+            # Defaults match Core module defaults so unset flags behave identically.
+            data_required:            metadata.fetch(:data_required, false) == true,
+            cache_required:           metadata.fetch(:cache_required, false) == true,
+            transport_required:       metadata.fetch(:transport_required, true) == true,
+            crypt_required:           metadata.fetch(:crypt_required, false) == true,
+            vault_required:           metadata.fetch(:vault_required, false) == true,
+            llm_required:             metadata.fetch(:llm_required, false) == true,
+            skills_required:          metadata.fetch(:skills_required, false) == true,
+            remote_invocable:         metadata.fetch(:remote_invocable, true) == true,
 
             # Extension contents
             runners:                  Array(metadata[:runners]),
@@ -141,9 +160,9 @@ module Legion
             checksum:                 resolve_string(metadata, :checksum),
 
             # Tool behavior defaults
-            mcp_tools:                metadata[:mcp_tools],
-            mcp_tools_deferred:       metadata[:mcp_tools_deferred],
-            sticky_tools:             metadata[:sticky_tools]
+            mcp_tools:                metadata.fetch(:mcp_tools, true) == true,
+            mcp_tools_deferred:       metadata.fetch(:mcp_tools_deferred, true) == true,
+            sticky_tools:             metadata.fetch(:sticky_tools, true) == true
           }
         end
 
@@ -179,6 +198,17 @@ module Legion
         def resolve_string(metadata, key)
           value = metadata[key]
           value&.to_s
+        end
+
+        # Derive segments from gem name using the same convention as
+        # Helpers::Segments: strip the 'lex-' prefix and split on '-'.
+        # e.g. 'lex-ollama' → ['ollama'], 'lex-llm-openai' → ['llm', 'openai']
+        def resolve_segments(name, metadata)
+          return Array(metadata[:segments]) if metadata[:segments]&.any?
+
+          gem = (metadata[:gem_name] || name).to_s
+          base = gem.start_with?('lex-') ? gem.sub(/\Alex-/, '') : gem
+          base.split('-')
         end
       end
     end

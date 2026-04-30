@@ -214,12 +214,15 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
                                                      sticky_tools:             true
                                                    })
 
-      # Identity
+      # Identity + derived fields
       expect(result[:name]).to eq('lex-ollama')
       expect(result[:gem_name]).to eq('lex-ollama')
       expect(result[:description]).to eq('Ollama local LLM provider')
       expect(result[:version]).to eq('0.3.10')
       expect(result[:const_path]).to eq('Legion::Extensions::Ollama')
+      expect(result[:segments]).to eq(['ollama'])
+      expect(result[:lex_name]).to eq('ollama')
+      expect(result[:lex_slug]).to eq('ollama')
 
       # Lifecycle
       expect(result[:state]).to eq(:running)
@@ -275,6 +278,51 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       expect(result[:loaded_features]).to eq([])
       expect(result[:reload_state]).to eq(:idle)
       expect(result[:hot_reloadable]).to be false
+
+      # Requirement flag defaults match Core module
+      expect(result[:data_required]).to be false
+      expect(result[:cache_required]).to be false
+      expect(result[:transport_required]).to be true
+      expect(result[:crypt_required]).to be false
+      expect(result[:vault_required]).to be false
+      expect(result[:llm_required]).to be false
+      expect(result[:skills_required]).to be false
+      expect(result[:remote_invocable]).to be true
+
+      # Tool behavior defaults
+      expect(result[:mcp_tools]).to be true
+      expect(result[:mcp_tools_deferred]).to be true
+      expect(result[:sticky_tools]).to be true
+
+      # Derived identity
+      expect(result[:segments]).to eq(['x'])
+      expect(result[:lex_name]).to eq('x')
+      expect(result[:lex_slug]).to eq('x')
+    end
+
+    it 'derives segments from multi-part gem names' do
+      result = described_class.normalize_extension('lex-llm-openai', {})
+      expect(result[:segments]).to eq(%w[llm openai])
+      expect(result[:lex_name]).to eq('llm_openai')
+      expect(result[:lex_slug]).to eq('llm.openai')
+    end
+
+    it 'preserves explicit segments when provided' do
+      result = described_class.normalize_extension('lex-ollama', { segments: %w[custom path] })
+      expect(result[:segments]).to eq(%w[custom path])
+    end
+
+    it 'stores requirement flags from metadata' do
+      result = described_class.normalize_extension('lex-data-heavy', {
+                                                     data_required:  true,
+                                                     cache_required: true,
+                                                     llm_required:   true
+                                                   })
+      expect(result[:data_required]).to be true
+      expect(result[:cache_required]).to be true
+      expect(result[:llm_required]).to be true
+      expect(result[:transport_required]).to be true
+      expect(result[:vault_required]).to be false
     end
   end
 end

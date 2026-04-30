@@ -56,15 +56,31 @@ module Legion
         # Filter extension entries by criteria.
         #
         # Supported criteria:
-        #   - state: [Symbol] filter by state
+        #   - state: [Symbol] filter by lifecycle state
+        #   - data_required, cache_required, llm_required, etc.: [Boolean] filter by requirement flags
         #   - category: [String, Symbol] filter by category
         #   - phase: [Integer] filter by phase
+        EXTENSION_BOOLEAN_FILTERS = %i[
+          data_required cache_required transport_required crypt_required
+          vault_required llm_required skills_required remote_invocable
+          mcp_tools mcp_tools_deferred sticky_tools hot_reloadable
+        ].freeze
+
         def apply_extension_filters(entries, criteria)
           result = entries.dup
           result.select! { |e| e[:state] == criteria[:state] } if criteria.key?(:state)
           result.select! { |e| normalize(e[:category]) == normalize(criteria[:category]) } if criteria.key?(:category)
           result.select! { |e| e[:phase] == criteria[:phase] } if criteria.key?(:phase)
+          apply_extension_boolean_filters!(result, criteria)
           result
+        end
+
+        def apply_extension_boolean_filters!(result, criteria)
+          EXTENSION_BOOLEAN_FILTERS.each do |key|
+            next unless criteria.key?(key)
+
+            result.select! { |e| e[key] == criteria[key] }
+          end
         end
 
         def filter_by_tags!(result, tags)
