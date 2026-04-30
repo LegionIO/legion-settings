@@ -200,9 +200,19 @@ module Legion
           value&.to_s
         end
 
-        # Derive segments from gem name using the same convention as
-        # Helpers::Segments: strip the 'lex-' prefix and split on '-'.
-        # e.g. 'lex-ollama' → ['ollama'], 'lex-llm-openai' → ['llm', 'openai']
+        # Derive segments from the published gem name. No magic, no lookup tables.
+        #
+        # Rules (matching Ruby gem → module conventions):
+        #   dash '-'       = module boundary:   lex-agentic-learning → ['agentic', 'learning'] → Agentic::Learning
+        #   underscore '_' = CamelCase inside:  lex-microsoft_teams  → ['microsoft_teams']     → MicrosoftTeams
+        #
+        # Examples:
+        #   lex-github              → ['github']                       → Legion::Extensions::Github
+        #   lex-agentic-learning    → ['agentic', 'learning']          → Legion::Extensions::Agentic::Learning
+        #   lex-llm-openai          → ['llm', 'openai']               → Legion::Extensions::Llm::Openai
+        #   lex-llm-azure-foundry   → ['llm', 'azure', 'foundry']     → Legion::Extensions::Llm::Azure::Foundry
+        #   lex-llm-azure_foundry   → ['llm', 'azure_foundry']        → Legion::Extensions::Llm::AzureFoundry
+        #   lex-microsoft_teams     → ['microsoft_teams']              → Legion::Extensions::MicrosoftTeams
         def resolve_segments(name, metadata)
           return Array(metadata[:segments]) if metadata[:segments]&.any?
 

@@ -318,10 +318,25 @@ RSpec.describe Legion::Settings::Extensions::Normalizer do
       expect(result[:lex_name]).to eq('agentic_learning')
     end
 
-    it 'handles lex-llm-azure-foundry segments with compound suffix' do
+    it 'handles lex-llm-azure-foundry as three segments (dash = module boundary)' do
       result = described_class.normalize_extension('lex-llm-azure-foundry', { gem_name: 'lex-llm-azure-foundry' })
+      expect(result[:segments]).to eq(%w[llm azure foundry])
+      expect(result[:lex_name]).to eq('llm_azure_foundry')
+      expect(result[:lex_slug]).to eq('llm.azure.foundry')
+    end
+
+    it 'handles lex-llm-azure_foundry as two segments (underscore = CamelCase)' do
+      result = described_class.normalize_extension('lex-llm-azure_foundry', { gem_name: 'lex-llm-azure_foundry' })
       expect(result[:segments]).to eq(%w[llm azure_foundry])
       expect(result[:lex_name]).to eq('llm_azure_foundry')
+      expect(result[:lex_slug]).to eq('llm.azure_foundry')
+    end
+
+    it 'handles lex-microsoft_teams underscore as single segment' do
+      result = described_class.normalize_extension('lex-microsoft_teams', { gem_name: 'lex-microsoft_teams' })
+      expect(result[:segments]).to eq(%w[microsoft_teams])
+      expect(result[:lex_name]).to eq('microsoft_teams')
+      expect(result[:lex_slug]).to eq('microsoft_teams')
     end
 
     it 'stores requirement flags from metadata' do

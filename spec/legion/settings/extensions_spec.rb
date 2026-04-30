@@ -583,7 +583,7 @@ RSpec.describe Legion::Settings::Extensions do
       }
     end
 
-    # lex-llm-azure-foundry: 3-segment nested LLM provider
+    # lex-llm-azure-foundry: 3-segment nested (dash = 3 modules: Llm::Azure::Foundry)
     let(:llm_azure_foundry) do
       {
         version:    '0.1.3',
@@ -592,8 +592,22 @@ RSpec.describe Legion::Settings::Extensions do
         tier:       2,
         phase:      1,
         gem_name:   'lex-llm-azure-foundry',
-        const_path: 'Legion::Extensions::Llm::AzureFoundry',
+        const_path: 'Legion::Extensions::Llm::Azure::Foundry',
         runners:    []
+      }
+    end
+
+    # lex-microsoft_teams: underscore means CamelCase inside one module
+    let(:microsoft_teams) do
+      {
+        version:    '0.2.0',
+        state:      :running,
+        category:   :service,
+        tier:       1,
+        phase:      1,
+        gem_name:   'lex-microsoft_teams',
+        const_path: 'Legion::Extensions::MicrosoftTeams',
+        runners:    ['microsoft_teams/channels']
       }
     end
 
@@ -613,12 +627,21 @@ RSpec.describe Legion::Settings::Extensions do
       expect(ext[:lex_slug]).to eq('llm.openai')
     end
 
-    it 'derives correct segments for 3-word LLM provider with compound suffix' do
+    it 'derives 3 segments for lex-llm-azure-foundry (dash = module boundary)' do
       registry.register_extension('lex-llm-azure-foundry', llm_azure_foundry)
       ext = registry.find_extension('lex-llm-azure-foundry')
-      expect(ext[:segments]).to eq(%w[llm azure_foundry])
+      expect(ext[:segments]).to eq(%w[llm azure foundry])
       expect(ext[:lex_name]).to eq('llm_azure_foundry')
-      expect(ext[:lex_slug]).to eq('llm.azure_foundry')
+      expect(ext[:lex_slug]).to eq('llm.azure.foundry')
+    end
+
+    it 'derives single segment for lex-microsoft_teams (underscore = CamelCase)' do
+      registry.register_extension('lex-microsoft_teams', microsoft_teams)
+      ext = registry.find_extension('lex-microsoft_teams')
+      expect(ext[:segments]).to eq(%w[microsoft_teams])
+      expect(ext[:lex_name]).to eq('microsoft_teams')
+      expect(ext[:lex_slug]).to eq('microsoft_teams')
+      expect(ext[:const_path]).to eq('Legion::Extensions::MicrosoftTeams')
     end
 
     it 'registers runners for multi-segment extension' do
