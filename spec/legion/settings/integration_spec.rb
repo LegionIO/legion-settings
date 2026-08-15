@@ -86,7 +86,14 @@ RSpec.describe 'DNS bootstrap override behavior' do
   let(:cache_dir) { Dir.mktmpdir('legion_dns_override_test') }
   let(:local_dir) { Dir.mktmpdir('legion_local_test') }
 
+  # These examples exercise the enabled bootstrap path against a hermetic
+  # cache dir — open the kill switch for their duration only.
+  before do
+    @orig_dns_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+    ENV.delete('LEGION_DNS_BOOTSTRAP')
+  end
   after do
+    ENV['LEGION_DNS_BOOTSTRAP'] = @orig_dns_bootstrap
     FileUtils.rm_rf(cache_dir)
     FileUtils.rm_rf(local_dir)
   end

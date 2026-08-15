@@ -135,6 +135,53 @@ RSpec.describe Legion::Settings::Helper do
       end
     end
 
+    # Regression (1.4.0 flat-key bug): the 1.4.0 helper derived ONE flat key
+    # from the first namespace part after Extensions:: (e.g. :llm), so every
+    # two-segment extension runner (lex-llm-*, lex-identity-*, ...) read the
+    # parent — or an empty — hash instead of its own nested section.
+    context 'two-segment nested extensions via runner classes (1.4.0 regression)' do
+      let(:vllm_runner) do
+        stub_const('Legion::Extensions::Llm::Vllm::Runners::DiscoveryRefresh', Class.new do
+          include Legion::Settings::Helper
+        end)
+      end
+
+      let(:entra_login_runner) do
+        stub_const('Legion::Extensions::Identity::Entra::Delegated::Runners::Login', Class.new do
+          include Legion::Settings::Helper
+        end)
+      end
+
+      before do
+        Legion::Settings::Extensions.register_extension('lex-llm-vllm', {
+                                                          state: :running, category: :ai
+                                                        })
+        Legion::Settings::Extensions.register_extension('lex-identity-entra', {
+                                                          state: :running, category: :identity
+                                                        })
+        Legion::Settings.merge_settings(:extensions, {
+                                          llm:      { vllm: { base_url: 'http://apollo-001:8000', max_tokens: 4096 } },
+                                          identity: { entra: { tenant_id: '00000000-0000-0000-0000-000000000000' } }
+                                        })
+      end
+
+      it 'lex-llm-vllm runner resolves to [:extensions][:llm][:vllm], not a flat key' do
+        obj = vllm_runner.new
+        expect(obj.settings[:base_url]).to eq('http://apollo-001:8000')
+        expect(obj.settings[:max_tokens]).to eq(4096)
+      end
+
+      it 'lex-identity-entra sub-module runner resolves to [:extensions][:identity][:entra]' do
+        obj = entra_login_runner.new
+        expect(obj.settings[:tenant_id]).to eq('00000000-0000-0000-0000-000000000000')
+      end
+
+      it 'writes from the runner land in the nested path' do
+        vllm_runner.new.settings[:discovery_interval] = 30
+        expect(Legion::Settings[:extensions][:llm][:vllm][:discovery_interval]).to eq(30)
+      end
+    end
+
     context 'when extension settings do not exist yet' do
       it 'creates a thread-safe empty hash at the correct path' do
         obj = github_runner.new

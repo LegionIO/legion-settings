@@ -1,5 +1,20 @@
 # Legion::Settings Changelog
 
+## [1.4.2] - 2026-08-14
+
+### Fixed
+- `Legion::Settings::Helper#settings` now resolves two-segment (nested) extensions to their nested settings path instead of a flat key. `lex-llm-vllm` (`Legion::Extensions::Llm::Vllm::Runners::DiscoveryRefresh`) resolves to `Legion::Settings[:extensions][:llm][:vllm]` — not the flat `:llm_vllm` key — and `lex-identity-entra` (`Legion::Extensions::Identity::Entra::Delegated::Runners::Login`) resolves to `[:extensions][:identity][:entra]`. All `lex-<a>-<b>` nested extensions (lex-llm-*, lex-identity-*, lex-agentic-*, etc.) were reading the wrong (empty) settings path in production; single-segment `lex-<name>` extensions were unaffected.
+- Resolution is now segment-based: an explicit `segments` method (LegionIO's `Helpers::Base` mixin) is preferred; otherwise segments are derived from the class namespace, stopping at boundary words (Actor/Actors/Runners/Helpers/Transport/Data), with the gem boundary verified against the `Legion::Settings::Extensions` registry. Sub-module runners resolve to their parent gem's settings.
+
+### Added
+- Regression spec in `spec/legion/settings/helper_spec.rb` covering nested two-segment runner resolution (lex-llm-vllm, lex-identity-entra) that fails on the 1.4.0 flat-key helper.
+
+### Changed
+- `Settings#[]` and `Settings#dig` read the settings hash directly with string→symbol key fallback instead of rebuilding an indifferent-access hash tree on every read (`indifferent_access!` now only runs on explicit `to_hash` calls) — removes the boot-time O(n) rebuild per read.
+- Overlay skips resolution when no overlay is active (fast path).
+- Consolidated four duplicate deep-merge implementations into a shared `Legion::Settings::DeepMerge` module that preserves `Concurrent::Hash` type through merges.
+- FQDN is lazy-resolved on first access instead of blocking at init; schema validation is deferred to `validate!` instead of running on every merge.
+
 ## [1.4.0] - 2026-04-29
 
 ### Added
