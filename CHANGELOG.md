@@ -1,6 +1,6 @@
 # Legion::Settings Changelog
 
-## [1.4.1] - 2026-08-14
+## [1.4.2] - 2026-08-14
 
 ### Fixed
 - `Legion::Settings::Helper#settings` now resolves two-segment (nested) extensions to their nested settings path instead of a flat key. `lex-llm-vllm` (`Legion::Extensions::Llm::Vllm::Runners::DiscoveryRefresh`) resolves to `Legion::Settings[:extensions][:llm][:vllm]` — not the flat `:llm_vllm` key — and `lex-identity-entra` (`Legion::Extensions::Identity::Entra::Delegated::Runners::Login`) resolves to `[:extensions][:identity][:entra]`. All `lex-<a>-<b>` nested extensions (lex-llm-*, lex-identity-*, lex-agentic-*, etc.) were reading the wrong (empty) settings path in production; single-segment `lex-<name>` extensions were unaffected.
