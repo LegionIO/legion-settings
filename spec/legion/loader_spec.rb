@@ -408,8 +408,11 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     context 'when bootstrap is disabled via env var' do
-      before { ENV['LEGION_DNS_BOOTSTRAP'] = 'false' }
-      after { ENV.delete('LEGION_DNS_BOOTSTRAP') }
+      before do
+        @orig_dns_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+        ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
+      end
+      after { ENV['LEGION_DNS_BOOTSTRAP'] = @orig_dns_bootstrap }
 
       it 'skips bootstrap' do
         loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
@@ -419,6 +422,12 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     context 'when cache file exists' do
+      before do
+        @orig_dns_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+        ENV.delete('LEGION_DNS_BOOTSTRAP')
+      end
+      after { ENV['LEGION_DNS_BOOTSTRAP'] = @orig_dns_bootstrap }
+
       let(:cache_json) do
         meta = '"_dns_bootstrap_meta":{"fetched_at":"2026-01-01T00:00:00Z",' \
                '"hostname":"legion-bootstrap.example.com",' \
@@ -443,6 +452,12 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     context 'when no cache and fetch succeeds (first boot)' do
+      before do
+        @orig_dns_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+        ENV.delete('LEGION_DNS_BOOTSTRAP')
+      end
+      after { ENV['LEGION_DNS_BOOTSTRAP'] = @orig_dns_bootstrap }
+
       it 'fetches, caches, and merges config' do
         loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
         bootstrap = instance_double(Legion::Settings::DnsBootstrap,
@@ -463,6 +478,12 @@ RSpec.describe Legion::Settings::Loader do
     end
 
     context 'when no cache and fetch fails (first boot)' do
+      before do
+        @orig_dns_bootstrap = ENV.fetch('LEGION_DNS_BOOTSTRAP', nil)
+        ENV.delete('LEGION_DNS_BOOTSTRAP')
+      end
+      after { ENV['LEGION_DNS_BOOTSTRAP'] = @orig_dns_bootstrap }
+
       it 'continues without bootstrap config' do
         loader.settings[:dns] = { default_domain: 'example.com', bootstrap: { enabled: true } }
         bootstrap = instance_double(Legion::Settings::DnsBootstrap,
