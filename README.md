@@ -48,6 +48,8 @@ Each Legion module registers its own defaults via `merge_settings` during startu
 
 `Legion::Settings.reload!` re-reads the config files that were previously loaded, reapplies module defaults and the nearest `.legionio.env`, re-resolves secret references, and returns a hash describing the changed keys.
 
+Reload publishes the new loader and its lease bindings together. A source change is committed even when its resolved value is unchanged, so replacing a lease URI with the same literal bytes still stops rotation. Malformed files or unresolved secrets raise and leave the active loader and bindings intact.
+
 ```ruby
 changes = Legion::Settings.reload!
 
@@ -57,7 +59,7 @@ changes
 # }
 ```
 
-Callbacks run only when changes are detected:
+Callbacks run after publication, outside the reload and lease locks, and only when resolved values change:
 
 ```ruby
 Legion::Settings.on_reload do |changes|
@@ -113,9 +115,17 @@ Array values act as fallback chains — the first non-nil result wins:
 
 Call `Legion::Settings.resolve_secrets!` to resolve all URIs in-place. In the LegionIO boot sequence this is called automatically after `Legion::Crypt.start`. The `env://` scheme works even when Vault is not connected.
 
+Lease integration requires **legion-crypt 1.5.38 or newer** with **legion-settings 1.4.4 or newer**. Release Crypt first. Neither gem gains a runtime dependency on the other; environment and literal-only resolution work without Crypt.
+
+Only the winning lease in a fallback chain can rotate its destination. A winning environment, Vault, or literal value—including `false`—does not subscribe unused leases. Nested hashes and arrays use typed paths, so array indexes and keys containing dots are preserved.
+
+Repeated resolution reevaluates the retained source declarations, including after rotation. Editing a URI or changing a resolved value replaces its source; removing a destination retires its lease binding. A fresh reload treats file contents as new declarations rather than guessing provenance from matching secret values. Vault read caches are local to each resolution, and Vault reads finish before lease publication begins.
+
+An unresolved one-shot reference is logged and left unchanged; strict reload rejects unresolved references instead of replacing live settings.
+
 ```ruby
 Legion::Settings.resolve_secrets!
-# All vault://, env://, and lease:// references are now replaced with their resolved values
+# Resolvable vault://, env://, and lease:// references are replaced with their values
 ```
 
 ### Schema Validation

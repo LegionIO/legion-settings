@@ -1,5 +1,17 @@
 # Legion::Settings Changelog
 
+## [1.4.4] - 2026-10-31
+
+### Fixed
+- Lease rotation follows only the winning secret source, with typed paths through nested hashes and arrays.
+- Preserve source declarations across repeated resolution and rotations; retire bindings when sources change or destinations disappear.
+- Preserve lease declarations inside module-default arrays when normalizing the live settings tree, so reload can bind them again.
+- Publish hot-reloaded settings and lease references together, including equal-value source changes. Invalid files or unresolved secrets leave the active loader and bindings intact.
+- Keep Vault reads outside lease publication locks and scope read caches to each resolution.
+
+### Compatibility
+- Lease resolution requires `legion-crypt >= 1.5.38`; environment and literal-only settings remain usable without Crypt.
+
 ## [1.4.3] - 2026-10-30
 
 ### Fixed

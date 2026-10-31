@@ -226,7 +226,7 @@ module Legion
         mark_dirty!
       end
 
-      def load_file(file)
+      def load_file(file, strict: false)
         log.debug("Trying to load file #{file}")
         if File.file?(file) && File.readable?(file)
           begin
@@ -239,9 +239,11 @@ module Legion
           rescue Legion::JSON::ParseError => e
             log.error("config file must be valid json: #{file}")
             log.error("  parse error: #{e.message}")
+            raise if strict
           end
         else
           log.warn("Config file does not exist or is not readable file:#{file}")
+          raise Error, "Config file does not exist or is not readable: #{file}" if strict
         end
       end
 
@@ -337,10 +339,16 @@ module Legion
         end
       end
 
-      def with_indifferent_access(hash)
-        hash = indifferent_hash.merge(hash)
-        hash.each do |key, value|
-          hash[key] = with_indifferent_access(value) if value.is_a?(Hash)
+      def with_indifferent_access(value)
+        case value
+        when Hash
+          value.each_with_object(indifferent_hash) do |(key, child), result|
+            result[key] = with_indifferent_access(child)
+          end
+        when Array
+          value.map { |child| with_indifferent_access(child) }
+        else
+          value
         end
       end
 

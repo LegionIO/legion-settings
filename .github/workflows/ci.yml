@@ -9,12 +9,16 @@ on:
 jobs:
   ci:
     uses: LegionIO/.github/.github/workflows/ci.yml@main
+    with:
+      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"f22702285d9ad9d80ddab115cf93568583bd7211"}}' || '{}' }}
 
   lint:
     uses: LegionIO/.github/.github/workflows/lint-patterns.yml@main
 
   security:
     uses: LegionIO/.github/.github/workflows/security-scan.yml@main
+    with:
+      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"f22702285d9ad9d80ddab115cf93568583bd7211"}}' || '{}' }}
 
   version-changelog:
     uses: LegionIO/.github/.github/workflows/version-changelog.yml@main
