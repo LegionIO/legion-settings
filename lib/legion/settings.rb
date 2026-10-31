@@ -116,10 +116,11 @@ module Legion
       def register_library(key, defaults)
         sym = key.to_sym
         ensure_loader
-        return if @registered_libraries&.include?(sym) && @loader.merged_modules.key?(sym)
+        registered = @registered_libraries&.include?(sym)
+        return if registered && @loader.merged_modules.key?(sym)
 
         merge_settings(sym, defaults)
-        (@registered_libraries ||= []) << sym
+        (@registered_libraries ||= []) << sym unless registered
       end
 
       def define_schema(key, overrides)
