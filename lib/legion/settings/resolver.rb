@@ -8,9 +8,10 @@ module Legion
     module Resolver
       extend Legion::Logging::Helper
 
-      VAULT_PATTERN  = %r{\Avault://(.+?)#(.+)\z}
+      # The delimiter follows a nonempty path/name; subsequent path characters cannot consume it.
+      VAULT_PATTERN  = %r{\Avault://([^\n][^#\n]*)#([^\n]+)\z}
       ENV_PATTERN    = %r{\Aenv://(.+)\z}
-      LEASE_PATTERN  = %r{\Alease://(.+?)#(.+)\z}
+      LEASE_PATTERN  = %r{\Alease://([^\n][^#\n]*)#([^\n]+)\z}
       URI_PATTERN    = %r{\A(?:vault|env|lease)://}
 
       @source_mutex = Mutex.new

@@ -8,6 +8,7 @@
 - Preserve lease declarations inside module-default arrays when normalizing the live settings tree, so reload can bind them again.
 - Publish hot-reloaded settings and lease references together, including equal-value source changes. Invalid files or unresolved secrets leave the active loader and bindings intact.
 - Keep Vault reads outside lease publication locks and scope read caches to each resolution.
+- Remove ambiguous backtracking from Vault and lease URI parsing while preserving existing delimiter semantics.
 
 ### Compatibility
 - Lease resolution requires `legion-crypt >= 1.5.38`; environment and literal-only settings remain usable without Crypt.
