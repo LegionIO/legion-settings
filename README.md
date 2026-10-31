@@ -1,8 +1,19 @@
 # legion-settings
 
-Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
+The process-local, in-memory settings store for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables into a shared settings tree, exposed through `Legion::Settings[:key]`.
 
-**Version**: 1.3.27
+**Version**: 1.4.4
+
+## Process-Local Settings Model
+
+Think of `legion-settings` as **one big, process-local `Concurrent::Hash`-style object**: the settings tree for that running Ruby process.
+
+- **Shared within the process.** Gems, extensions, actors, and worker threads use the same base settings tree through `Legion::Settings`, rather than maintaining separate copies of the application's configuration.
+- **Local to that process.** Another process has its own settings object, even on the same host or when loading the same files. Changing this process's settings does not update another process or node.
+- **Generic storage, component-owned meaning.** Each library owns its namespace, defaults, and behavior. Settings supplies common loading, merging, access, and reload mechanics; it does not own each component's execution policy.
+- **An in-memory object, not a persistence or synchronization service.** Files, environment variables, defaults, and resolved secrets populate the tree. Runtime changes do not automatically write back to those sources or broadcast to other processes.
+
+Request overlays provide scoped overrides without replacing the shared base tree. The `Concurrent::Hash`-style model does not mean every nested value is itself a concurrent hash or that an arbitrary sequence of reads and writes is atomic; callers must coordinate compound mutations.
 
 ## Installation
 
@@ -48,6 +59,8 @@ Each Legion module registers its own defaults via `merge_settings` during startu
 
 `Legion::Settings.reload!` re-reads the config files that were previously loaded, reapplies module defaults and the nearest `.legionio.env`, re-resolves secret references, and returns a hash describing the changed keys.
 
+Reload publishes the new loader and its lease bindings together. A source change is committed even when its resolved value is unchanged, so replacing a lease URI with the same literal bytes still stops rotation. Malformed files or unresolved secrets raise and leave the active loader and bindings intact.
+
 ```ruby
 changes = Legion::Settings.reload!
 
@@ -57,7 +70,7 @@ changes
 # }
 ```
 
-Callbacks run only when changes are detected:
+Callbacks run after publication, outside the reload and lease locks, and only when resolved values change:
 
 ```ruby
 Legion::Settings.on_reload do |changes|
@@ -113,9 +126,17 @@ Array values act as fallback chains — the first non-nil result wins:
 
 Call `Legion::Settings.resolve_secrets!` to resolve all URIs in-place. In the LegionIO boot sequence this is called automatically after `Legion::Crypt.start`. The `env://` scheme works even when Vault is not connected.
 
+Lease integration requires **legion-crypt 1.5.38 or newer** with **legion-settings 1.4.4 or newer**. Release Crypt first. Neither gem gains a runtime dependency on the other; environment and literal-only resolution work without Crypt.
+
+Only the winning lease in a fallback chain can rotate its destination. A winning environment, Vault, or literal value—including `false`—does not subscribe unused leases. Nested hashes and arrays use typed paths, so array indexes and keys containing dots are preserved.
+
+Repeated resolution reevaluates the retained source declarations, including after rotation. Editing a URI or changing a resolved value replaces its source; removing a destination retires its lease binding. A fresh reload treats file contents as new declarations rather than guessing provenance from matching secret values. Vault read caches are local to each resolution, and Vault reads finish before lease publication begins.
+
+An unresolved one-shot reference is logged and left unchanged; strict reload rejects unresolved references instead of replacing live settings.
+
 ```ruby
 Legion::Settings.resolve_secrets!
-# All vault://, env://, and lease:// references are now replaced with their resolved values
+# Resolvable vault://, env://, and lease:// references are replaced with their values
 ```
 
 ### Schema Validation
@@ -131,6 +152,17 @@ Legion::Settings.validate!  # raises ValidationError if any settings are invalid
 # Set LEGION_DEV=true or Legion::Settings.set_prop(:dev, true)
 # validate! will warn through the configured logger instead of raising
 ```
+
+### Library Defaults
+
+Libraries own their defaults and register them with
+`Legion::Settings.register_library(:my_library, defaults)`. Existing configuration
+values take precedence. Registration is idempotent for the active loader; after
+replacing the loader or calling `load(force: true)`, a library can register its
+defaults again without losing configuration overrides.
+
+Settings and overlays are local to the process. Registration does not synchronize
+configuration across processes or provide durable shared state.
 
 ### Logging Defaults
 

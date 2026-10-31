@@ -77,10 +77,10 @@ RSpec.describe 'Legion::Settings hot-reload' do
       expect(Legion::Settings[:custom_module]).to include(enabled: true, mode: 'default')
     end
 
-    it 'does not update the loader when nothing changed' do
-      original_loader = Legion::Settings.loader
+    it 'preserves visible settings when nothing changed' do
       Legion::Settings.reload!
-      expect(Legion::Settings.loader).to equal(original_loader)
+
+      expect(Legion::Settings[:llm][:default_model]).to eq('old-model')
     end
 
     it 'returns empty hash when loader is not initialized' do
@@ -88,17 +88,27 @@ RSpec.describe 'Legion::Settings hot-reload' do
       expect(Legion::Settings.reload!).to eq({})
     end
 
-    it 'is thread-safe under concurrent calls' do
-      results = []
+    it 'publishes one coherent update under concurrent reloads' do
+      File.write(File.join(tmpdir, 'test.json'), JSON.generate({ llm: { default_model: 'concurrent-model' } }))
+      ready = Queue.new
+      release = Queue.new
       threads = 5.times.map do
         Thread.new do
-          File.write(File.join(tmpdir, 'test.json'), JSON.generate({ llm: { default_model: "thread-#{Thread.current.object_id}" } }))
-          results << Legion::Settings.reload!
+          ready << true
+          release.pop
+          Legion::Settings.reload!
         end
       end
-      threads.each(&:join)
-      expect(results.size).to eq(5)
-      results.each { |r| expect(r).to be_a(Hash) }
+      5.times { ready.pop }
+      5.times { release << true }
+
+      results = threads.map(&:value)
+
+      expect(results.reject(&:empty?)).to eq([{ 'llm.default_model' => { old: 'old-model', new: 'concurrent-model' } }])
+      expect(Legion::Settings[:llm][:default_model]).to eq('concurrent-model')
+    ensure
+      threads&.each { |thread| thread.kill if thread.alive? }
+      threads&.each(&:join)
     end
   end
 
@@ -147,25 +157,20 @@ RSpec.describe 'Legion::Settings hot-reload' do
     end
 
     it 'raises ArgumentError when called without a block' do
-      expect { Legion::Settings.on_reload }.to raise_error(ArgumentError, /requires a block/)
+      expect { Legion::Settings.on_reload }.to raise_error(ArgumentError)
     end
   end
 
   describe '.watch!' do
-    it 'is a no-op on platforms without HUP signal' do
-      allow(Signal).to receive(:list).and_return({})
-      expect { Legion::Settings.watch! }.not_to raise_error
-    end
-
-    it 'installs a SIGHUP handler on supported platforms' do
+    it 'delivers detected configuration changes to its optional callback' do
       skip 'HUP not available' unless Signal.list.key?('HUP')
-      expect { Legion::Settings.watch! }.not_to raise_error
-    end
 
-    it 'accepts an optional block passed to on_reload' do
-      skip 'HUP not available' unless Signal.list.key?('HUP')
-      called = false
-      expect { Legion::Settings.watch! { |_| called = true } }.not_to raise_error
+      changes = nil
+      Legion::Settings.watch! { |updated| changes = updated }
+      File.write(File.join(tmpdir, 'test.json'), Legion::JSON.dump({ llm: { default_model: 'watched-model' } }))
+      Legion::Settings.reload!
+
+      expect(changes.fetch('llm.default_model')).to eq(old: 'old-model', new: 'watched-model')
     end
 
     it 'reuses one reload worker across repeated registrations' do

@@ -115,10 +115,12 @@ module Legion
       #   Legion::Settings.register_library(:transport, Legion::Transport::Settings.default)
       def register_library(key, defaults)
         sym = key.to_sym
-        return if @registered_libraries&.include?(sym)
+        ensure_loader
+        registered = @registered_libraries&.include?(sym)
+        return if registered && @loader.merged_modules.key?(sym)
 
         merge_settings(sym, defaults)
-        (@registered_libraries ||= []) << sym
+        (@registered_libraries ||= []) << sym unless registered
       end
 
       def define_schema(key, overrides)
@@ -190,10 +192,13 @@ module Legion
       end
 
       def resolve_secrets!
-        ensure_loader
-        require 'legion/settings/resolver'
-        Resolver.resolve_secrets!(@loader.to_hash)
-        logger.debug('Secret resolution complete')
+        @reload_mutex ||= Mutex.new
+        @reload_mutex.synchronize do
+          ensure_loader
+          require 'legion/settings/resolver'
+          Resolver.resolve_secrets!(@loader.to_hash, owner: @loader)
+          logger.debug('Secret resolution complete')
+        end
       end
 
       def schema
@@ -216,17 +221,16 @@ module Legion
       # ------------------------------------------------------------------
       def reload!
         @reload_mutex ||= Mutex.new
-        @reload_mutex.synchronize do
+        changes = @reload_mutex.synchronize do
           return {} unless @loader
 
-          old_hash = @loader.to_hash.dup
           files = @loader.loaded_files.dup
 
           # Re-create loader and replay the same files
           new_loader = Legion::Settings::Loader.new
           new_loader.load_env
           new_loader.load_dns_bootstrap
-          files.each { |f| new_loader.load_file(f) if File.exist?(f) }
+          files.each { |file| new_loader.load_file(file, strict: true) if File.exist?(file) }
 
           # Replay module merges so extension defaults are preserved
           if @loader.respond_to?(:merged_modules)
@@ -238,27 +242,28 @@ module Legion
           # Replay project env overrides (.legionio.env)
           load_project_env(loader: new_loader)
 
-          # Re-resolve secrets (vault://, env://, lease://)
-          begin
-            require 'legion/settings/resolver'
-            Resolver.resolve_secrets!(new_loader.to_hash)
-          rescue StandardError => e
-            logger.warn("Settings reload: secret resolution failed: #{e.message}")
+          require 'legion/settings/resolver'
+          changes = nil
+          publication = lambda do |_proposal|
+            changes = diff_settings(@loader.to_hash, new_loader.to_hash)
+            @loader = new_loader
           end
-
-          new_hash = new_loader.to_hash
-          changes = diff_settings(old_hash, new_hash)
+          Resolver.resolve_secrets!(new_loader.to_hash, owner: new_loader, previous_owner: @loader,
+                                    strict: true, publish: publication)
 
           if changes.empty?
             logger.info('Settings reload: no changes detected')
           else
-            @loader = new_loader
             logger.info("Settings reload: #{changes.size} key(s) changed — #{changes.keys.join(', ')}")
-            fire_reload_callbacks(changes)
           end
 
           changes
         end
+        fire_reload_callbacks(changes) unless changes.empty?
+        changes
+      rescue StandardError => e
+        logger.warn("Settings reload failed: #{e.class}: #{e.message}")
+        raise
       end
 
       # Register a SIGHUP handler that triggers reload!

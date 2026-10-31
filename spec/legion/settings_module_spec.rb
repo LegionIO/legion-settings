@@ -140,6 +140,39 @@ RSpec.describe Legion::Settings do
     end
   end
 
+  describe '.register_library' do
+    let(:defaults) { { connection: { host: 'localhost', port: 8080 }, enabled: true } }
+
+    it 'recovers defaults after loader replacement without replacing file configuration' do
+      described_class.register_library(:my_library, defaults)
+
+      Dir.mktmpdir do |directory|
+        path = File.join(directory, 'library.json')
+        File.write(path, Legion::JSON.dump({ my_library: { connection: { host: 'configured.example' }, enabled: false } }))
+        replacement = Legion::Settings::Loader.new
+        replacement.load_file(path)
+        described_class.loader = replacement
+
+        described_class.register_library(:my_library, defaults)
+
+        expect(described_class[:my_library]).to eq(connection: { host: 'configured.example', port: 8080 }, enabled: false)
+      end
+    end
+
+    it 'recovers defaults after a forced load and remains idempotent on that loader' do
+      described_class.register_library(:my_library, defaults)
+      described_class.load(force: true)
+      described_class.register_library(:my_library, defaults)
+
+      expect(described_class[:my_library]).to eq(defaults)
+
+      described_class.set_prop(:my_library, { connection: { host: 'runtime.example' } })
+      described_class.register_library(:my_library, defaults)
+
+      expect(described_class[:my_library]).to eq(connection: { host: 'runtime.example' })
+    end
+  end
+
   describe '.define_schema' do
     it 'adds schema overrides and validates against them' do
       described_class.merge_settings('svc', { driver: 'http' })
