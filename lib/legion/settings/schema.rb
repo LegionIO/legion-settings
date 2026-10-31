@@ -180,9 +180,8 @@ module Legion
 
       def find_similar(key, candidates)
         key_str = key.to_s
-        candidates.map(&:to_s).select { |c| levenshtein(key_str, c) <= 2 }
-                              .min_by { |c| levenshtein(key_str, c) }
-                              &.to_sym
+        similar = candidates.map(&:to_s).select { |candidate| levenshtein(key_str, candidate) <= 2 }
+        similar.min_by { |candidate| levenshtein(key_str, candidate) }&.to_sym
       end
 
       def levenshtein(str_a, str_b)

@@ -152,20 +152,15 @@ RSpec.describe 'Legion::Settings hot-reload' do
   end
 
   describe '.watch!' do
-    it 'is a no-op on platforms without HUP signal' do
-      allow(Signal).to receive(:list).and_return({})
-      expect { Legion::Settings.watch! }.not_to raise_error
-    end
-
-    it 'installs a SIGHUP handler on supported platforms' do
+    it 'delivers detected configuration changes to its optional callback' do
       skip 'HUP not available' unless Signal.list.key?('HUP')
-      expect { Legion::Settings.watch! }.not_to raise_error
-    end
 
-    it 'accepts an optional block passed to on_reload' do
-      skip 'HUP not available' unless Signal.list.key?('HUP')
-      called = false
-      expect { Legion::Settings.watch! { |_| called = true } }.not_to raise_error
+      changes = nil
+      Legion::Settings.watch! { |updated| changes = updated }
+      File.write(File.join(tmpdir, 'test.json'), Legion::JSON.dump({ llm: { default_model: 'watched-model' } }))
+      Legion::Settings.reload!
+
+      expect(changes.fetch('llm.default_model')).to eq(old: 'old-model', new: 'watched-model')
     end
 
     it 'reuses one reload worker across repeated registrations' do
