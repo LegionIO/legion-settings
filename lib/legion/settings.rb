@@ -115,7 +115,8 @@ module Legion
       #   Legion::Settings.register_library(:transport, Legion::Transport::Settings.default)
       def register_library(key, defaults)
         sym = key.to_sym
-        return if @registered_libraries&.include?(sym)
+        ensure_loader
+        return if @registered_libraries&.include?(sym) && @loader.merged_modules.key?(sym)
 
         merge_settings(sym, defaults)
         (@registered_libraries ||= []) << sym

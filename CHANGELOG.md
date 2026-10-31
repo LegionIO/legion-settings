@@ -1,5 +1,16 @@
 # Legion::Settings Changelog
 
+## [1.5.0] - 2026-10-30
+
+### Added
+- Root `task_execution` defaults and `legion/settings/task_execution` entrypoint with shared statuses, routes, terminal recognition, retry, execution, outbox, publication, protocol, and trusted-ingress configuration.
+- `TaskExecution::Helper` resolves live settings overlays through `task_execution_settings`, `task_status(name:)`, `task_route(name:)`, and `task_terminal_status?(status:)`, with explicit configuration validation instead of hidden consumer fallbacks.
+- Regression coverage for configuration-file precedence, nested overlays, loader replacement/forced load, hot reload, legacy terminal rows, and rejected invalid policy.
+
+### Fixed
+- Library registration idempotency now checks the active loader, allowing defaults to be registered after loader replacement without discarding user overrides.
+- New retry-safe-runner and internal-role permissions use strictly validated Boolean maps, allowing `false` to revoke inherited grants without changing existing array merge semantics.
+
 ## [1.4.2] - 2026-08-14
 
 ### Fixed
