@@ -226,7 +226,7 @@ module Legion
         mark_dirty!
       end
 
-      def load_file(file, strict: false)
+      def load_file(file, strict: false, **)
         log.debug("Trying to load file #{file}")
         if File.file?(file) && File.readable?(file)
           begin

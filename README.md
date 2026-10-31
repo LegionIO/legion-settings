@@ -1,8 +1,19 @@
 # legion-settings
 
-Configuration management module for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables. Provides a unified `Legion::Settings[:key]` accessor used by all other Legion gems.
+The process-local, in-memory settings store for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables into a shared settings tree, exposed through `Legion::Settings[:key]`.
 
-**Version**: 1.4.3
+**Version**: 1.4.4
+
+## Process-Local Settings Model
+
+Think of `legion-settings` as **one big, process-local `Concurrent::Hash`-style object**: the settings tree for that running Ruby process.
+
+- **Shared within the process.** Gems, extensions, actors, and worker threads use the same base settings tree through `Legion::Settings`, rather than maintaining separate copies of the application's configuration.
+- **Local to that process.** Another process has its own settings object, even on the same host or when loading the same files. Changing this process's settings does not update another process or node.
+- **Generic storage, component-owned meaning.** Each library owns its namespace, defaults, and behavior. Settings supplies common loading, merging, access, and reload mechanics; it does not own each component's execution policy.
+- **An in-memory object, not a persistence or synchronization service.** Files, environment variables, defaults, and resolved secrets populate the tree. Runtime changes do not automatically write back to those sources or broadcast to other processes.
+
+Request overlays provide scoped overrides without replacing the shared base tree. The `Concurrent::Hash`-style model does not mean every nested value is itself a concurrent hash or that an arbitrary sequence of reads and writes is atomic; callers must coordinate compound mutations.
 
 ## Installation
 

@@ -9,6 +9,10 @@
 - Publish hot-reloaded settings and lease references together, including equal-value source changes. Invalid files or unresolved secrets leave the active loader and bindings intact.
 - Keep Vault reads outside lease publication locks and scope read caches to each resolution.
 - Remove ambiguous backtracking from Vault and lease URI parsing while preserving existing delimiter semantics.
+- Accept extra keyword options in `Loader#load_file` while preserving the explicit `strict:` behavior.
+
+### Documentation
+- Clarify the process-local, shared in-memory settings model and its persistence, synchronization, and component-ownership boundaries.
 
 ### Compatibility
 - Lease resolution requires `legion-crypt >= 1.5.38`; environment and literal-only settings remain usable without Crypt.
