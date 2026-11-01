@@ -30,6 +30,7 @@ module Legion
 
         # Create Loader once; reuse for subsequent calls (preserves module merges)
         if @loader.nil? || options[:force]
+          module_defaults = @loader&.merged_modules
           @loader = Legion::Settings::Loader.new
           @loader.load_env
           @loader.load_dns_bootstrap
@@ -40,6 +41,7 @@ module Legion
         options[:config_dirs]&.each do |directory|
           @loader.load_directory(directory)
         end
+        @loader.load_module_settings(module_defaults) if module_defaults
 
         @loaded = true if has_config
         load_project_env

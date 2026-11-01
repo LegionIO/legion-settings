@@ -1,5 +1,11 @@
 # Legion::Settings Changelog
 
+## [1.4.5] - 2026-11-01
+
+### Fixed
+- Preserve explicitly configured arrays, including empty allowlists, when registering module or library defaults; never restore disabled entries from defaults.
+- Retain registered module defaults across `load(force: true)` while allowing freshly loaded user configuration to remain authoritative.
+
 ## [1.4.4] - 2026-10-31
 
 ### Fixed

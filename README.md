@@ -2,7 +2,7 @@
 
 The process-local, in-memory settings store for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables into a shared settings tree, exposed through `Legion::Settings[:key]`.
 
-**Version**: 1.4.4
+**Version**: 1.4.5
 
 ## Process-Local Settings Model
 
@@ -126,7 +126,7 @@ Array values act as fallback chains — the first non-nil result wins:
 
 Call `Legion::Settings.resolve_secrets!` to resolve all URIs in-place. In the LegionIO boot sequence this is called automatically after `Legion::Crypt.start`. The `env://` scheme works even when Vault is not connected.
 
-Lease integration requires **legion-crypt 1.5.38 or newer** with **legion-settings 1.4.4 or newer**. Release Crypt first. Neither gem gains a runtime dependency on the other; environment and literal-only resolution work without Crypt.
+Lease integration requires **legion-crypt 1.5.38 or newer** with **legion-settings 1.4.4 or newer**. Settings keeps Crypt optional, so environment and literal-only resolution work without Crypt. Crypt 1.5.39 and newer require Settings as a runtime dependency.
 
 Only the winning lease in a fallback chain can rotate its destination. A winning environment, Vault, or literal value—including `false`—does not subscribe unused leases. Nested hashes and arrays use typed paths, so array indexes and keys containing dots are preserved.
 
@@ -155,11 +155,17 @@ Legion::Settings.validate!  # raises ValidationError if any settings are invalid
 
 ### Library Defaults
 
-Libraries own their defaults and register them with
+Libraries own their defaults and register them once at startup with
 `Legion::Settings.register_library(:my_library, defaults)`. Existing configuration
-values take precedence. Registration is idempotent for the active loader; after
-replacing the loader or calling `load(force: true)`, a library can register its
-defaults again without losing configuration overrides.
+values take precedence, including `false`, `nil`, and empty or restricted arrays.
+Registration fills missing keys; it does not union default arrays into user policy.
+`load(force: true)` retains registered defaults and applies them after loading user
+configuration. A manually replaced loader must be bootstrapped explicitly.
+
+Consumers read live `Legion::Settings[:component][:key]` values instead of caching
+loader pointers or registering defaults during reads. LegionIO automatically injects
+`Legion::Settings::Helper` into framework runners and actors; those consumers use
+their native `settings[:key]` helper.
 
 Settings and overlays are local to the process. Registration does not synchronize
 configuration across processes or provide durable shared state.

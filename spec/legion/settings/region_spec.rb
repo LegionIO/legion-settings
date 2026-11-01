@@ -71,9 +71,10 @@ RSpec.describe 'Region settings' do
       expect(Legion::Settings.dig(:region, :default_affinity)).to eq('any')
     end
 
-    it 'merges peers from config' do
+    it 'does not add default peers to an explicitly empty configured peer list' do
+      Legion::Settings[:region][:peers] = []
       Legion::Settings.merge_settings(:region, { peers: ['us-west-2'] })
-      expect(Legion::Settings.dig(:region, :peers)).to include('us-west-2')
+      expect(Legion::Settings.dig(:region, :peers)).to eq([])
     end
 
     it 'merges nested data_residency hash' do

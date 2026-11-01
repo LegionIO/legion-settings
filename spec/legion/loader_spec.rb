@@ -509,10 +509,10 @@ RSpec.describe Legion::Settings::Loader do
       expect(loader[:crypt][:vault][:connected]).to eq(false)
     end
 
-    it 'concatenates arrays uniquely' do
-      loader[:test_arr] = [1, 2, 3]
-      loader.load_module_default({ test_arr: [3, 4, 5] })
-      expect(loader[:test_arr]).to contain_exactly(1, 2, 3, 4, 5)
+    it 'does not re-enable array entries excluded by configured settings' do
+      loader[:policy] = { modes: ['idle'], recovery_statuses: [] }
+      loader.load_module_default({ policy: { modes: %w[active idle], recovery_statuses: ['queued'] } })
+      expect(loader[:policy]).to eq(modes: ['idle'], recovery_statuses: [])
     end
 
     it 'overwrites scalar values via load_file' do

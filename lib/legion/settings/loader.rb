@@ -215,14 +215,14 @@ module Legion
         mod_name = config.keys.first
         log.debug("Loading module settings: #{mod_name}")
         @merged_modules = deep_merge(@merged_modules, config)
-        @settings = deep_merge(config, @settings)
+        @settings = DeepMerge.merge_defaults(defaults: config, settings: @settings)
         mark_dirty!
       end
 
       def load_module_default(config)
         mod_name = config.keys.first
         log.debug("Loading module defaults: #{mod_name}")
-        @settings = deep_merge(config, @settings)
+        @settings = DeepMerge.merge_defaults(defaults: config, settings: @settings)
         mark_dirty!
       end
 
