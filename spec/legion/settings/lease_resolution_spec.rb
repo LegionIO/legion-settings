@@ -5,6 +5,7 @@ require 'tmpdir'
 require 'fileutils'
 require 'timeout'
 require 'legion/crypt/lease_manager'
+require 'legion/crypt/settings'
 require 'legion/settings/resolver'
 
 RSpec.describe 'Settings lease resolution transactions' do
@@ -15,6 +16,7 @@ RSpec.describe 'Settings lease resolution transactions' do
 
   before do
     Legion::Settings.reset!
+    Legion::Settings.register_library(:crypt, Legion::Crypt::Settings.default)
     manager.reset!
     manager.start({}, vault_client: vault_client)
     allow(Legion::Crypt).to receive(:vault_connected?).and_return(false)

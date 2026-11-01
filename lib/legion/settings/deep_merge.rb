@@ -48,6 +48,29 @@ module Legion
         end
         base
       end
+
+      # Defaults fill missing keys; configured scalars and arrays remain authoritative.
+      def merge_defaults(defaults:, settings:)
+        defaults.each_with_object(settings.dup) do |(key, value), merged|
+          if !settings.key?(key)
+            merged[key] = duplicate_default(value: value)
+          elsif value.is_a?(Hash) && settings[key].is_a?(Hash)
+            merged[key] = merge_defaults(defaults: value, settings: settings[key])
+          end
+        end
+      end
+
+      def duplicate_default(value:)
+        case value
+        when Hash
+          value.transform_values { |child| duplicate_default(value: child) }
+        when Array
+          value.map { |child| duplicate_default(value: child) }
+        else
+          value.dup
+        end
+      end
+      private_class_method :duplicate_default
     end
   end
 end

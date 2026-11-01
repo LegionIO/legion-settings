@@ -38,13 +38,15 @@ RSpec.describe 'Legion::Settings' do
     expect(Legion::Settings.get).to eq(singleton)
   end
 
-  it 'can override the loader singleton' do
-    singleton = Legion::Settings.get
-    expect(Legion::Settings.get).to eq(singleton)
-    loader = Legion::Settings.load(force: true)
-    expect(singleton).to_not eq(loader)
-    Legion::Settings.loader = loader
-    expect(Legion::Settings.get).to eq(loader)
+  it 'retains registered defaults without restoring permissions denied by the reloaded file' do
+    require 'tempfile'
+    Legion::Settings.register_library(:example, { enabled: true, modes: %w[active idle], timeout: 10 })
+    Tempfile.create(['legion-settings-force', '.json']) do |file|
+      file.write(Legion::JSON.dump({ example: { enabled: false, modes: [] } }))
+      file.flush
+      Legion::Settings.load(force: true, config_file: file.path)
+      expect(Legion::Settings[:example]).to eq(enabled: false, modes: [], timeout: 10)
+    end
   end
 
   it "can load up a loader if one doesn't exist" do
