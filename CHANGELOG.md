@@ -1,5 +1,14 @@
 # Legion::Settings Changelog
 
+## [1.4.6] - 2026-11-24
+
+### Added
+- Add the `Legion::Settings::Defaults` entry point with `Client`, `DNS`, and `TLS` namespaces for organizing settings defaults.
+- Add `Client.defaults` and `DNS.defaults` factories that return fresh `Concurrent::Hash` instances with the existing client and DNS default values, preserving lazy FQDN resolution.
+
+### Fixed
+- Restore lease resolution integration tests with legion-crypt 1.6.0 by updating the keyword startup call, test dependency, and CI companion pins.
+
 ## [1.4.5] - 2026-11-01
 
 ### Fixed

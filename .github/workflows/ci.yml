@@ -10,7 +10,7 @@ jobs:
   ci:
     uses: LegionIO/.github/.github/workflows/ci.yml@e0fc7364b73f446d4cb9bdc162a66ed34bf0daa7
     with:
-      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"9317bd69cbbcc0feeaaff8368bed3569ed98b101"}}' || '{}' }}
+      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"9639a714e88628a1c50eb9b092a6adda2e309923"}}' || '{}' }}
 
   lint:
     uses: LegionIO/.github/.github/workflows/lint-patterns.yml@main
@@ -18,7 +18,7 @@ jobs:
   security:
     uses: LegionIO/.github/.github/workflows/security-scan.yml@e0fc7364b73f446d4cb9bdc162a66ed34bf0daa7
     with:
-      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"9317bd69cbbcc0feeaaff8368bed3569ed98b101"}}' || '{}' }}
+      companion-gems: ${{ github.event_name == 'pull_request' && '{"legion-crypt":{"repository":"LegionIO/legion-crypt","ref":"9639a714e88628a1c50eb9b092a6adda2e309923"}}' || '{}' }}
 
   version-changelog:
     uses: LegionIO/.github/.github/workflows/version-changelog.yml@main

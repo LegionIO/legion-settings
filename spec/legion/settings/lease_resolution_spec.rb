@@ -18,7 +18,7 @@ RSpec.describe 'Settings lease resolution transactions' do
     Legion::Settings.reset!
     Legion::Settings.register_library(:crypt, Legion::Crypt::Settings.default)
     manager.reset!
-    manager.start({}, vault_client: vault_client)
+    manager.start(definitions: {}, client: vault_client)
     allow(Legion::Crypt).to receive(:vault_connected?).and_return(false)
     allow(Dir).to receive(:pwd).and_return(tmpdir)
     ENV.delete('LEGION_LEASE_SPEC_SECRET')

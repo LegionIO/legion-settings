@@ -2,7 +2,7 @@
 
 The process-local, in-memory settings store for the [LegionIO](https://github.com/LegionIO/LegionIO) framework. Loads settings from JSON files, directories, and environment variables into a shared settings tree, exposed through `Legion::Settings[:key]`.
 
-**Version**: 1.4.5
+**Version**: 1.4.6
 
 ## Process-Local Settings Model
 
